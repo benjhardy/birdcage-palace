@@ -19,7 +19,7 @@ SEQ = LinearSegmentedColormap.from_list("seq_blue", ["#f7f9fc", "#9cc3ee", "#2a7
 plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 10, "axes.edgecolor": MUTED, "axes.labelcolor": INK2,
                      "xtick.color": INK2, "ytick.color": INK2, "axes.titlesize": 11, "axes.titleweight": "bold",
                      "axes.spines.top": False, "axes.spines.right": False, "savefig.dpi": 200,
-                     "savefig.facecolor": "white"})
+                     "savefig.facecolor": "white", "legend.fontsize": 8})
 
 
 def _ctx(case: Path):
@@ -91,7 +91,7 @@ def fig_b1_maps(case: Path, out: Path, quad: bool = True) -> Path:
         panels.append((title, f"{m['f_mhz']:.1f} MHz", _bt(B), "|B$_t$|"))
     if cols > len(sel):
         a, b = res["homogeneous_pair"]["m"]
-        q = quadrature(raw["B"][a - 1], raw["B"][b - 1])
+        q = quadrature(raw["B"][a - 1], raw["B"][b - 1], sl["roi"])
         panels.insert(1, ("k=1 pair, quadrature", "B$_1^+$ = (B$_x$+iB$_y$)/2", np.abs(q["b1p"]), "|B$_1^+$|"))
     for j, (title, sub, v, lab) in enumerate(panels):
         vmax = np.nanmax(v[sl["axial"]].tolist() + v[sl["coronal"]].tolist())
@@ -105,7 +105,8 @@ def fig_b1_maps(case: Path, out: Path, quad: bool = True) -> Path:
             ax.set_aspect("equal")
             ax.tick_params(labelsize=7)
             ax.set_xlabel("x (cm)", fontsize=8)
-            ax.set_ylabel("y (cm)" if plane == "axial" else "z (cm)", fontsize=8)
+            if j == 0:
+                ax.set_ylabel("y (cm)" if plane == "axial" else "z (cm)", fontsize=8)
             for s in ax.spines.values():
                 s.set_visible(False)
             if i == 0:
@@ -121,39 +122,75 @@ def fig_b1_maps(case: Path, out: Path, quad: bool = True) -> Path:
     return out
 
 
-def fig_spectrum(case: Path, out: Path) -> Path:
-    res = json.loads((Path(case) / "modes.json").read_text())
+def _spectrum_axes(ax, res, title=None, legend=True, label_target=True, legend_loc=None):
     an = res["analytic"]["spectrum"]
     N = res["N"]
+    lowpass = res["design"]["coil_type"] == "lowpass"
     f0 = res["design"]["b0"] * 42.577478
-    fig, ax = plt.subplots(figsize=(7.2, 4.2))
+    sc = plt.rcParams["font.size"] / 10.0
     ks = np.array(an["k"])
     fa = np.array(an["f_hz"]) / 1e6
     keep = fa > 0
     ax.plot(ks[keep], fa[keep], "-", color=MUTED, lw=1.2, zorder=1)
-    ax.plot(ks[keep], fa[keep], "o", ms=8, mfc="white", mec=INK2, mew=1.4, zorder=2, label="ladder model (analytic)")
+    ax.plot(ks[keep], fa[keep], "o", ms=8 * sc, mfc="white", mec=INK2, mew=1.4, zorder=2, label="ladder model (analytic)")
     other = []
     for m in res["modes"]:
-        if m.get("k_purity", 0) >= 0.8 and m.get("k") is not None and not (m.get("k") == 0 and res["design"]["coil_type"] == "lowpass"):
-            ax.plot(m["k"], m["f_mhz"], "o", ms=6, color=ORANGE if m["homogeneous"] else BLUE, mec="white", mew=0.8, zorder=3)
+        if m.get("k_purity", 0) >= 0.8 and m.get("k") is not None:
+            ax.plot(m["k"], m["f_mhz"], "o", ms=6 * sc, color=ORANGE if m["homogeneous"] else BLUE, mec="white", mew=0.8, zorder=3)
         else:
             other.append(m)
-    ax.plot([], [], "o", ms=6, color=BLUE, label="Palace eigenmodes (identified k)")
+    ax.plot([], [], "o", ms=6, color=BLUE, label="Palace eigenmodes, k from rung currents")
     ax.plot([], [], "o", ms=6, color=ORANGE, label="homogeneous k=1 pair")
+    if lowpass:
+        k0 = [m for m in res["modes"] if m.get("k") == 0 and m.get("k_purity", 0) >= 0.8]
+        if k0:
+            ax.annotate("rungs in phase,\nshield return", (0, k0[0]["f_mhz"]), xytext=(0.25, k0[0]["f_mhz"] - 8),
+                        fontsize=7 * sc, color=INK2, va="top")
     ax.axhline(f0, color=ORANGE, lw=0.8, ls="--", zorder=0)
-    ax.text(-0.35, f0 + 4, f"{f0:.1f} MHz (1H at {res['design']['b0']:g} T)", va="bottom", fontsize=8, color=ORANGE)
+    if label_target:
+        ax.text(-0.35, f0 + 4, f"{f0:.1f} MHz (1H at {res['design']['b0']:g} T)", va="bottom", fontsize=8 * sc, color=ORANGE)
     if other:
-        ax.plot([N / 2 + 1.1] * len(other), [m["f_mhz"] for m in other], "x", color=MUTED, ms=6, mew=1.4,
-                label="other Palace modes (mixed / shield / ring)")
+        ax.plot([N / 2 + 1.1] * len(other), [m["f_mhz"] for m in other], "x", color=MUTED, ms=6 * sc, mew=1.4 * sc,
+                label="Palace modes with no capacitor current")
     ax.set_xticks(list(range(N // 2 + 1)) + ([N / 2 + 1.1] if other else []))
     ax.set_xticklabels([str(k) for k in range(N // 2 + 1)] + (["other"] if other else []))
     ax.set_xlabel("mode index k (rung current ∝ cos 2πkn/N)")
-    ax.set_ylabel("frequency (MHz)")
     ax.grid(axis="y", color=GRID, lw=0.6)
     ax.set_xlim(-0.5, N / 2 + 1.9)
-    ax.legend(frameon=False, fontsize=8, loc="upper left")
+    if legend:
+        if legend_loc:
+            ax.legend(frameon=False, loc=legend_loc, bbox_to_anchor=(0.93, 1.02))
+        else:
+            ax.legend(frameon=False, loc="lower right", bbox_to_anchor=(1.0, 0.03))
+    if title:
+        ax.set_title(title, loc="left")
+
+
+def fig_spectrum(case: Path, out: Path, figsize=(7.2, 4.2)) -> Path:
+    res = json.loads((Path(case) / "modes.json").read_text())
+    fig, ax = plt.subplots(figsize=figsize)
     t = res["design"]["coil_type"].replace("pass", "-pass")
-    ax.set_title(f"{N}-rung {t} birdcage: mode spectrum", loc="left")
+    _spectrum_axes(ax, res, f"{res['N']}-rung {t} birdcage: mode spectrum")
+    ax.set_ylabel("frequency (MHz)")
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
+def fig_spectrum_compare(case_a: Path, case_b: Path, out: Path, figsize=(12.5, 4.8), vertical: bool = False) -> Path:
+    """(a) first-guess capacitor from the ladder model, (b) after retuning in Palace; same mesh."""
+    ra = json.loads((Path(case_a) / "modes.json").read_text())
+    rb = json.loads((Path(case_b) / "modes.json").read_text())
+    fig, axs = plt.subplots(2, 1, figsize=figsize, sharex=True) if vertical else plt.subplots(1, 2, figsize=figsize, sharey=True)
+    ca, cb = ra["design"]["c_leg"] * 1e12, rb["design"]["c_leg"] * 1e12
+    _spectrum_axes(axs[0], ra, f"(a) ladder first guess: C = {ca:.2f} pF per rung", legend=not vertical)
+    _spectrum_axes(axs[1], rb, f"(b) retuned in Palace: C = {cb:.2f} pF per rung", legend=vertical,
+                   label_target=False, legend_loc="upper right" if vertical else None)
+    axs[0].set_ylabel("frequency (MHz)")
+    if vertical:
+        axs[1].set_ylabel("frequency (MHz)")
+        axs[0].set_xlabel("")
+    fig.tight_layout()
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
     return out
@@ -207,7 +244,7 @@ def render_coil(case: Path, out: Path, show_mesh: bool = False, window=(1600, 12
         tri = np.array(d["tris"]).reshape(-1, 3)
         return pv.PolyData(np.array(d["nodes"]) * 100, np.hstack([np.full((len(tri), 1), 3), tri]).ravel())
     coil, caps, outer = mesh("coil"), mesh("caps"), mesh("outer")
-    pl.add_mesh(coil, color="#c8792e", specular=0.4, smooth_shading=False, show_edges=show_mesh,
+    pl.add_mesh(coil, color="#d98a4a", specular=0.5, specular_power=20, ambient=0.25, smooth_shading=False, show_edges=show_mesh,
                 edge_color="#5a3412", line_width=0.4)
     if caps is not None:
         pl.add_mesh(caps, color=BLUE, show_edges=show_mesh, edge_color="#0d2b5c", line_width=0.4)
@@ -231,11 +268,14 @@ def render_coil(case: Path, out: Path, show_mesh: bool = False, window=(1600, 12
 
 
 def render_mesh_cut(case: Path, out: Path, window=(1600, 1200)) -> Path:
-    """Volume mesh clipped at x > 0 with the coil overlaid."""
+    """Two views of the mesh: the y=0 slice through the volume mesh (grading towards the strips and the capacitor
+    gaps) and a close-up of the surface mesh on the coil around one capacitor."""
     import gmsh
     import pyvista as pv
+    from PIL import Image
     case = Path(case)
     info = json.loads((case / "build.json").read_text())
+    des = json.loads((case / "design.json").read_text())
     gmsh.initialize()
     gmsh.option.setNumber("General.Verbosity", 0)
     gmsh.open(str(case / info["mesh"]))
@@ -246,27 +286,39 @@ def render_mesh_cut(case: Path, out: Path, window=(1600, 1200)) -> Path:
     _, et = gmsh.model.mesh.getElementsByType(4)
     gmsh.finalize()
     tet = idx[et.astype(int)].reshape(-1, 4)
-    cells = np.hstack([np.full((len(tet), 1), 4), tet]).ravel()
-    ug = pv.UnstructuredGrid(cells, np.full(len(tet), pv.CellType.TETRA), xyz)
-    cen = xyz[tet].mean(1)
-    cut = ug.extract_cells(np.where(cen[:, 1] > 0)[0])
+    ug = pv.UnstructuredGrid(np.hstack([np.full((len(tet), 1), 4), tet]).ravel(), np.full(len(tet), pv.CellType.TETRA), xyz)
+    sl = ug.slice(normal=(0, 1, 0), origin=(0, 1e-3, 0))
+    imgs = []
     pl = pv.Plotter(off_screen=True, window_size=window)
     pl.set_background("white")
-    pl.add_mesh(cut.extract_surface(), color="#eef2f8", show_edges=True, edge_color="#7d8796", line_width=0.3)
+    pl.add_mesh(sl, color="#eef2f8", show_edges=True, edge_color="#55606f", line_width=0.6)
+    R, l = des["diameter"] / 2 * 100, des["length"] * 100
+    for x in (-R, R):
+        pl.add_mesh(pv.Line((x, -0.5, -l / 2), (x, -0.5, l / 2)), color="#d98a4a", line_width=5)
+    pl.view_xz(negative=False)
+    pl.camera.zoom(1.05)
+    pl.screenshot(str(out.with_name(out.stem + "_slice.png")))
+    pl.close()
     s = json.loads((case / "surfaces.json").read_text())
-    for lbl, col in (("coil", "#c8792e"), ("caps", BLUE)):
+    pl = pv.Plotter(off_screen=True, window_size=window)
+    pl.set_background("white")
+    for lbl, col in (("coil", "#d98a4a"), ("caps", BLUE)):
         d = s[lbl]
         if d["nodes"]:
             tri = np.array(d["tris"]).reshape(-1, 3)
             pm = pv.PolyData(np.array(d["nodes"]) * 100, np.hstack([np.full((len(tri), 1), 3), tri]).ravel())
-            c = pm.cell_centers().points
-            pl.add_mesh(pm.extract_cells(np.where(c[:, 1] <= 0.5)[0]), color=col, show_edges=True,
-                        edge_color="#3d2410", line_width=0.3)
-    pl.camera_position = [(10, -120, 40), (0, 0, 0), (0, 0, 1)]
-    pl.camera.zoom(1.3)
-    pl.enable_anti_aliasing("ssaa")
-    pl.screenshot(str(out))
+            pl.add_mesh(pm, color=col, show_edges=True, edge_color="#3d2410" if lbl == "coil" else "#0b2547",
+                        line_width=1.0, ambient=0.3)
+    pl.camera_position = [(R + 22, -9, 3), (R, 0, 0), (0, 0, 1)]
+    pl.camera.view_angle = 30
+    pl.screenshot(str(out.with_name(out.stem + "_closeup.png")))
     pl.close()
+    a_ = Image.open(out.with_name(out.stem + "_slice.png")).convert("RGB")
+    b_ = Image.open(out.with_name(out.stem + "_closeup.png")).convert("RGB")
+    W = Image.new("RGB", (a_.width + b_.width, max(a_.height, b_.height)), "white")
+    W.paste(a_, (0, 0))
+    W.paste(b_, (a_.width, 0))
+    W.save(out)
     return out
 
 
@@ -277,7 +329,7 @@ def all_figures(case: Path, figdir: Path) -> list[Path]:
             fig_currents(case, figdir / "currents.png")]
     try:
         outs.append(render_coil(case, figdir / "coil.png"))
-        outs.append(render_coil(case, figdir / "coil_mesh.png", show_mesh=True))
+        outs.append(render_mesh_cut(case, figdir / "mesh.png"))
     except Exception as e:  # pyvista / OpenGL not available: figures above are still written
         print("3D render skipped:", e)
     print("figures:", ", ".join(p.name for p in outs))

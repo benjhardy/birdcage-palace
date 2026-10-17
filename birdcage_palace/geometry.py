@@ -37,6 +37,13 @@ def _strip(occ, R, a0, a1, z0, z1):
     return [t for d, t in ext if d == 2][0]
 
 
+def _flat_gap(occ, R, a0, a1, z0, z1):
+    """Planar rectangle between the vertical lines at angles a0 and a1 on the cylinder of radius R."""
+    p = [occ.addPoint(R * math.cos(a), R * math.sin(a), z) for a, z in ((a0, z0), (a1, z0), (a1, z1), (a0, z1))]
+    ln = [occ.addLine(p[i], p[(i + 1) % 4]) for i in range(4)]
+    return occ.addPlaneSurface([occ.addCurveLoop(ln)])
+
+
 def build(des: CoilDesign, out_dir: Path, name: str = "birdcage", verbosity: int = 2) -> dict:
     des.validate()
     out_dir = Path(out_dir)
@@ -71,7 +78,9 @@ def build(des: CoilDesign, out_dir: Path, name: str = "birdcage", verbosity: int
         for n, ph in enumerate(leg_angles(N)):  # gap n sits between rung n and n+1
             mid = ph + math.pi / N
             nxt = ph + 2 * math.pi / N + math.pi / N
-            sheets.append((_strip(occ, R, mid - dg, mid + dg, zc - wr / 2, zc + wr / 2), f"ringcap_{side}", n))
+            # flat patch across the gap (its two z-parallel edges are exactly the segment ends), so the lumped
+            # element is planar and its Palace direction is exact
+            sheets.append((_flat_gap(occ, R, mid - dg, mid + dg, zc - wr / 2, zc + wr / 2), f"ringcap_{side}", n))
             sheets.append((_strip(occ, R, mid + dg, nxt - dg, zc - wr / 2, zc + wr / 2), "coil", n))
 
     if des.shield_diameter:

@@ -37,6 +37,7 @@ def cmd_build(a) -> None:
         des.c_leg = an["c_leg"]
     if des.c_ring is None and an["c_ring"] is not None:
         des.c_ring = an["c_ring"]
+    des.notes = {"c_leg_first_guess": an["c_leg"], "c_ring_first_guess": an["c_ring"]}
     an = ladder.analytic(des)  # spectrum with the capacitors actually used
     out = Path(a.out)
     t0 = time.time()
@@ -107,7 +108,14 @@ def cmd_tune(a) -> None:
         (case / "tune_history.json").write_text(json.dumps(hist, indent=1))
         if abs(err) < a.tol:
             break
-        s = (f / des.f_larmor) ** 2
+        # 1/f^2 = L_eff (C + C_stray) is linear in C: secant on the last two points, plain (f/f0)^2 scaling first.
+        #    A slope measured on another (e.g. coarser) mesh can seed the first step: --slope from `birdcage slope`.
+        x = [h["c_leg"] or h["c_ring"] for h in hist]
+        y = [1 / h["f_k1_mhz"] ** 2 for h in hist]
+        y0 = 1 / (des.f_larmor / 1e6) ** 2
+        slope = (y[-1] - y[-2]) / (x[-1] - x[-2]) if len(x) >= 2 and x[-1] != x[-2] else a.slope
+        s = (x[-1] + (y0 - y[-1]) / slope) / x[-1] if slope else (f / des.f_larmor) ** 2
+        hist[-1]["next_scale"] = s
         des.c_leg = des.c_leg * s if des.c_leg else None
         des.c_ring = des.c_ring * s if des.c_ring else None
         des.to_json(case / "design.json")
@@ -159,6 +167,8 @@ def main(argv=None) -> None:
         s.add_argument("--tol", type=float, default=0.005)
         s.add_argument("--max-iter", type=int, default=4)
         s.add_argument("--resolve-first", action="store_true")
+        s.add_argument("--slope", type=float, default=None,
+                       help="d(1/f_MHz^2)/dC (1/(MHz^2 F)) from an earlier pair of solves, seeds the first retune step")
         s.set_defaults(fn=fn)
     a = ap.parse_args(argv)
     a.fn(a)

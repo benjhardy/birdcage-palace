@@ -169,7 +169,7 @@ def analyse(case: Path) -> dict:
                                    "split_mhz": abs(fa - fb), "split_rel": abs(fa - fb) / ((fa + fb) / 2),
                                    "roi_bt_cv": [k1[0]["roi_bt_cv"], k1[1]["roi_bt_cv"]]}
         if "B" in r:
-            q = quadrature(r["B"][k1[0]["m"] - 1], r["B"][k1[1]["m"] - 1])
+            q = quadrature(r["B"][k1[0]["m"] - 1], r["B"][k1[1]["m"] - 1], sl["roi"])
             roi = q["b1p"][sl["roi"]]
             out["homogeneous_pair"]["b1plus_roi_cv"] = float(np.abs(roi).std() / np.abs(roi).mean())
             out["homogeneous_pair"]["b1minus_over_b1plus_roi"] = float(np.abs(q["b1m"][sl["roi"]]).mean() / np.abs(roi).mean())
@@ -179,20 +179,22 @@ def analyse(case: Path) -> dict:
     return out
 
 
-def quadrature(Ba: np.ndarray, Bb: np.ndarray) -> dict:
+def quadrature(Ba: np.ndarray, Bb: np.ndarray, ref: slice | None = None) -> dict:
     """B1+ / B1- of the k=1 pair driven 90 degrees apart, Ba + i Bb or Ba - i Bb, whichever gives the larger B1+.
 
     Each eigenvector is first made real (it is, up to a phase, for a lossless mode) and the pair is orthogonalised
-    and equal-amplitude normalised over all probes so the combination is a pure rotating field.
+    and equal-amplitude normalised over the probes in `ref` (the ROI: a rotationally symmetric point set), so the
+    combination is a pure rotating field there.
     """
+    ref = ref if ref is not None else slice(None)
     def realify(B):
         v = B.reshape(-1)
         j = np.argmax(np.abs(v))
         return np.real(B * np.exp(-1j * np.angle(v[j])))
     a, b = realify(Ba), realify(Bb)
-    a = a / np.linalg.norm(a)
-    b = b - np.sum(a * b) * a
-    b = b / np.linalg.norm(b)
+    a = a / np.linalg.norm(a[ref])
+    b = b - np.sum(a[ref] * b[ref]) * a
+    b = b / np.linalg.norm(b[ref])
     best = None
     for s in (1, -1):
         B = a + s * 1j * b
