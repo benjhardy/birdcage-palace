@@ -336,3 +336,50 @@ def all_figures(case: Path, figdir: Path) -> list[Path]:
         print("3D render skipped:", e)
     print("figures:", ", ".join(p.name for p in outs))
     return outs
+
+
+def fig_loaded_compare(case_u: Path, case_l: Path, out: Path) -> Path:
+    """Quadrature |B1+| of the k=1 pair, unloaded vs phantom-loaded, normalised to the value at the coil centre."""
+    rows = []
+    for case in (case_u, case_l):
+        res, raw, pts, sl = _ctx(case)
+        hp = res["homogeneous_pair"]
+        q = quadrature(raw["B"][hp["m"][0] - 1], raw["B"][hp["m"][1] - 1], sl["roi"])
+        v = np.abs(q["b1p"])
+        ax_pts = pts[sl["axial"]]
+        c = v[sl["axial"]][np.argmin((ax_pts[:, :2] ** 2).sum(1))]
+        q_val = np.mean([res["modes"][m - 1]["Q"] for m in hp["m"]])
+        rows.append((res, pts, sl, v / c, hp, q_val))
+    fig, axs = plt.subplots(2, 2, figsize=(7.6, 8.6), gridspec_kw={"width_ratios": [1, 0.8]})
+    for i, (res, pts, sl, v, hp, qv) in enumerate(rows):
+        des = res["design"]
+        for j, (plane, cut) in enumerate((("axial", (0, 1)), ("coronal", (0, 2)))):
+            ax = axs[i, j]
+            img, ext = _grid(pts[sl[plane]][:, cut], v[sl[plane]])
+            im = ax.imshow(img, origin="lower", extent=[e * 100 for e in ext], cmap=SEQ, vmin=0, vmax=1.6,
+                           interpolation="bilinear")
+            _coil_marks(ax, des, plane)
+            ph = des.get("phantom")
+            if ph:
+                if plane == "axial":
+                    t = np.linspace(0, 2 * np.pi, 200)
+                    ax.plot(ph["radius"] * 100 * np.cos(t), ph["radius"] * 100 * np.sin(t), color=AQUA, lw=1.4)
+                else:
+                    ax.add_patch(plt.Rectangle((-ph["radius"] * 100, -ph["length"] * 50), ph["radius"] * 200,
+                                               ph["length"] * 100, fill=False, ec=AQUA, lw=1.4))
+            ax.set_aspect("equal")
+            ax.tick_params(labelsize=7)
+            for sp in ax.spines.values():
+                sp.set_visible(False)
+            if j == 0:
+                lab = (f"saline phantom (εr {ph['eps_r']:g}, σ {ph['sigma']:g} S/m)" if ph else "unloaded")
+                qs = f", Q = {qv:.0f}" if np.isfinite(qv) and qv < 1e6 else ""
+                ax.set_title(f"{lab}\nk = 1 at {hp['f_mean_mhz']:.2f} MHz{qs}; B1+ ROI std/mean {hp['b1plus_roi_cv'] * 100:.0f} %",
+                             fontsize=9, loc="left", color=INK)
+    cb = fig.colorbar(im, ax=axs, shrink=0.6, pad=0.02)
+    cb.set_label("quadrature |B1+| / value at the centre", fontsize=8)
+    fig.suptitle("k = 1 pair driven in quadrature: axial plane z = 0 (left), coronal plane y = 0 (right), axes in cm",
+                 fontsize=9.5, color=INK2, x=0.45)
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+    return out

@@ -151,7 +151,26 @@ from a pair of coarse solves and landed at +0.24 %, and a secant step then lande
 
 ![Mesh: y = 0 slice through the volume mesh and the surface mesh at the capacitor gaps](docs/img/mesh.png)
 
-LOADED_PLACEHOLDER
+## Loaded check: saline phantom (coarse mesh)
+
+A cylindrical phantom (radius 8 cm, length 20 cm, εr 78, σ 0.6 S/m) inside the tuned coil (C = 1.83 pF), on the
+coarse order-2 mesh, compared with the same mesh unloaded:
+
+| | unloaded | loaded |
+|---|---|---|
+| k = 1 pair | 128.09 MHz | 127.33 MHz (−0.6 %) |
+| Q (phantom loss only; conductors are lossless) | ∞ | 66 |
+| quadrature B1+, ROI std/mean | 2.4 % | 18 % |
+| \|B1−\| / \|B1+\| in the ROI | 4.0 % | 28 % |
+| solve | 484 k unknowns, 3.8 min on 4 ranks, 6.6 GB | 498 k unknowns, 5.4 min on 6 ranks, 7.9 GB |
+
+The phantom makes the eigenproblem complex (Palace reports Q directly). At 128 MHz the wavelength in the phantom is
+about 27 cm, comparable to its 16 cm diameter, so the quadrature field brightens at the centre and B1+ and B1−
+separate. That is the familiar 3 T head-imaging inhomogeneity, which the empty-coil maps above do not show. The ROI
+(r < 8.4 cm) extends 4 mm past the phantom radius. The loaded solve requested only the k = 1 pair (2 modes,
+tolerance 1e-6); with 12 modes the quadratic eigenproblem converged too slowly to be practical here.
+
+![Quadrature B1+ unloaded vs phantom-loaded](docs/img/loaded_b1plus.png)
 
 ## High-pass check (coarse mesh, not tuned)
 
@@ -170,7 +189,7 @@ check on a coarse mesh only; it has not been retuned or refined.
 ## Limits
 
 * Simulation only; nothing here is measured. Conductors are lossless PEC sheets and the capacitors are ideal, so
-  the unloaded coil has no Q. Copper and capacitor ESR, cables, baluns, matching and the drive ports are not modelled.
+  the unloaded coil has no Q, and the loaded Q counts phantom loss only. The phantom case uses the coarse mesh. Copper and capacitor ESR, cables, baluns, matching and the drive ports are not modelled.
 * The shield is a closed PEC can (end caps 10 cm beyond the rings), not the open-ended shield of a real scanner. That
   lowers the ring inductance a little; `--shield-ends absorbing` is available but turns the eigenproblem complex.
 * The quadrature B1+ map is a superposition of the two k = 1 eigenmodes, which is what an ideal, decoupled

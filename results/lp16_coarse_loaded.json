@@ -1,0 +1,138 @@
+{
+ "design": {
+  "legs": 16,
+  "diameter": 0.28,
+  "length": 0.25,
+  "leg_width": 0.012,
+  "ring_width": 0.015,
+  "gap": 0.005,
+  "coil_type": "lowpass",
+  "b0": 3.0,
+  "shield_diameter": 0.34,
+  "shield_length": null,
+  "shield_ends": "pec",
+  "c_leg": 1.828e-12,
+  "c_ring": null,
+  "bandpass_ratio": 1.0,
+  "phantom": {
+   "radius": 0.08,
+   "length": 0.2,
+   "eps_r": 78.0,
+   "sigma": 0.6
+  },
+  "h_coil": 0.008,
+  "h_gap": 0.004,
+  "h_max": 0.04,
+  "order": 2,
+  "notes": {
+   "c_leg_first_guess": 1.828e-12,
+   "c_ring_first_guess": null
+  }
+ },
+ "homogeneous_pair": {
+  "m": [
+   1,
+   2
+  ],
+  "f_mhz": [
+   127.32224740080001,
+   127.3454515172
+  ],
+  "f_mean_mhz": 127.333849459,
+  "split_mhz": 0.0232041163999952,
+  "split_rel": 0.00018223054198535522,
+  "roi_bt_cv": [
+   0.1689593324299748,
+   0.1691308197320039
+  ],
+  "b1plus_roi_cv": 0.18066588717981416,
+  "b1minus_over_b1plus_roi": 0.2797999062532042
+ },
+ "comparison": [
+  {
+   "k": 1,
+   "f_ladder_mhz": 158.28394607306166,
+   "f_palace_mhz": [
+    127.32224740080001,
+    127.3454515172
+   ],
+   "ratio": 0.8044647143193188
+  },
+  {
+   "k": 2,
+   "f_ladder_mhz": 235.3390103697634,
+   "f_palace_mhz": [],
+   "ratio": null
+  },
+  {
+   "k": 3,
+   "f_ladder_mhz": 273.7663093645864,
+   "f_palace_mhz": [],
+   "ratio": null
+  },
+  {
+   "k": 4,
+   "f_ladder_mhz": 296.72645459627665,
+   "f_palace_mhz": [],
+   "ratio": null
+  },
+  {
+   "k": 5,
+   "f_ladder_mhz": 311.78937454486476,
+   "f_palace_mhz": [],
+   "ratio": null
+  },
+  {
+   "k": 6,
+   "f_ladder_mhz": 321.6146773505272,
+   "f_palace_mhz": [],
+   "ratio": null
+  },
+  {
+   "k": 7,
+   "f_ladder_mhz": 327.2397844299791,
+   "f_palace_mhz": [],
+   "ratio": null
+  },
+  {
+   "k": 8,
+   "f_ladder_mhz": 329.0775971101818,
+   "f_palace_mhz": [],
+   "ratio": null
+  }
+ ],
+ "solve_stats": {
+  "ranks": 6,
+  "wall_s": 324.0,
+  "exit": 0,
+  "unknowns": 498302,
+  "peak_mem_reported": null,
+  "max_rss_one_rank_gb": 1.42
+ },
+ "modes": [
+  {
+   "m": 1,
+   "f_mhz": 127.32224740080001,
+   "Q": 65.5722026722,
+   "label": "k=1",
+   "k": 1,
+   "k_purity": 0.9999996105568034,
+   "roi_bt_cv": 0.1689593324299748,
+   "roi_transverse_frac": 0.9913582236162208,
+   "cap_free": false,
+   "homogeneous": true
+  },
+  {
+   "m": 2,
+   "f_mhz": 127.3454515172,
+   "Q": 65.49893194952,
+   "label": "k=1",
+   "k": 1,
+   "k_purity": 0.9999994255552396,
+   "roi_bt_cv": 0.1691308197320039,
+   "roi_transverse_frac": 0.9913625244322327,
+   "cap_free": false,
+   "homogeneous": true
+  }
+ ]
+}

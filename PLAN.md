@@ -1,17 +1,17 @@
-# Solve plan
+# Solve plan and actuals
 
-Machine: 8 threads, 32 GB (WSL sees 25 GB). Another Palace job may share the machine, so at most 4 MPI ranks.
+Machine: 8 threads, 32 GB (WSL sees 25 GB). Another Palace job sometimes shared the machine, so at most 4 MPI ranks then.
 
-| case | mesh (h_coil / h_gap / h_max, mm) | tets | order | unknowns (est.) | RAM (est.) | wall (est.) | purpose |
-|---|---|---|---|---|---|---|---|
-| test_coarse | 8 / 4 / 40 | 72 k | 1 | 92 k (actual) | 1.4 GB (actual) | 3 min (actual) | pipeline smoke test, mode ID check |
-| lp16_m1p2 | 8 / 4 / 40 | 72 k | 2 | ~0.5 M | 4-6 GB | 10-15 min | p-refinement step |
-| lp16_m2 | 5 / 2.5 / 35 | 169 k | 2 | ~1.1 M | 10-15 GB | 25-45 min | h-refinement step; production mesh if converged |
-| tune iterations | production mesh | | 2 | same | same | same per iteration | C rescaled by (f_sim/f_target)^2, mesh reused |
-| loaded (phantom) | production + 20 mm in phantom | ~250 k | 2 | ~1.6 M | 15-20 GB | 45-90 min | frequency shift, Q |
+| case | mesh (h_coil / h_gap / h_max, mm) | order | unknowns | estimate | actual | purpose |
+|---|---|---|---|---|---|---|
+| test_coarse | 8 / 4 / 40 | 1 | 92 k | - | 3.0 min, 1.4 GB, 4 ranks | smoke test, mode ID |
+| lp16_m1p2 | 8 / 4 / 40 | 2 | 484 k | 10-15 min, 4-6 GB | 6.6 min, 6.6 GB, 4 ranks (direct MUMPS) | p-refinement |
+| lp16_m2 | 5 / 2.5 / 35 | 2 | 1.12 M | 25-45 min, 10-15 GB | 20.4 min, 16.2 GB, 4 ranks | h-refinement, production mesh |
+| lp16_m1p2_c2 | 8 / 4 / 40 | 2 | 484 k | 7 min | 6.4 min | 1/f^2 slope vs C for the tune step |
+| lp16_final (2 tune solves) | production | 2 | 1.12 M | 20 min each | 14.2 + 13.6 min, 16 GB | k=1 on 127.73 MHz |
+| hp16_test | 8 / 4 / 40 | 1 | 100 k | 3 min | 2.2 min, 3 ranks | high-pass functional check |
+| lp16_coarse_unloaded / _loaded | 8 / 4 / 40 (+20 mm in phantom) | 2 | 484 k / 498 k | 10-20 min | 3.8 min / 5.4 min (k=1 pair only) | phantom shift and Q |
 
-Unknowns: whether the lumped-C eigenproblem converges with 20 modes from a target of 0.55 f0 (yes on test_coarse: 20 modes);
-how far the ladder model is from full wave (test_coarse: k=1 at 112.9 MHz vs 127.7 MHz ladder, -11.6 %);
-mesh convergence of the k=1 frequency (decides the production mesh).
-
-Rule: run the cheaper case first; do not start a > 20 min case before the previous level finished and looked sane.
+Lesson: with p-multigrid (default) each shift-and-invert solve at order 2 took about 1 min; `MGMaxLevels = 1`
+(direct MUMPS on the full order-2 system) made the whole 20-mode solve 6.6 min. The lossy (phantom) eigenproblem
+did not reach 12 modes in 45 min; requesting only the k = 1 pair at tol 1e-6 took 5.4 min.

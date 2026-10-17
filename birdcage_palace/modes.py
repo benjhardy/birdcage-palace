@@ -187,13 +187,16 @@ def quadrature(Ba: np.ndarray, Bb: np.ndarray, ref: slice | None = None) -> dict
     combination is a pure rotating field there.
     """
     ref = ref if ref is not None else slice(None)
-    def realify(B):
-        v = B.reshape(-1)
+    def align(B):  # remove the arbitrary eigenvector phase: make the ROI-summed field real along its main axis
+        v = B[ref].sum(0)
         j = np.argmax(np.abs(v))
-        return np.real(B * np.exp(-1j * np.angle(v[j])))
-    a, b = realify(Ba), realify(Bb)
+        return B * np.exp(-1j * np.angle(v[j]))
+    a, b = align(Ba), align(Bb)
+    lossless = np.abs(np.imag(a)).max() < 1e-6 * np.abs(a).max() and np.abs(np.imag(b)).max() < 1e-6 * np.abs(b).max()
+    if lossless:
+        a, b = np.real(a), np.real(b)
     a = a / np.linalg.norm(a[ref])
-    b = b - np.sum(a[ref] * b[ref]) * a
+    b = b - np.vdot(a[ref], b[ref]) * a  # complex Gram-Schmidt over the ROI
     b = b / np.linalg.norm(b[ref])
     best = None
     for s in (1, -1):
