@@ -26,14 +26,14 @@ rung currents go as I_n ∝ cos(2πkn/N + φ), k = 0 ... N/2 (Hayes et al. 1985;
   so two drive ports 90 degrees apart in space and phase give a circularly polarised B1+ (quadrature drive).
 * **k ≥ 2** modes have k current periods. Their field is a multipole that vanishes at the centre and is
   confined near the conductors. Every k between 1 and N/2 − 1 is a degenerate pair; k = N/2 is single.
-* **k = 0** has no net rung current pattern (low-pass: rungs all in phase, closing through the shield; high-pass:
-  counter- and co-rotating end-ring currents).
+* **k = 0** has the same current in every rung. In the low-pass coil that mode closes through the shield; in the
+  high-pass coil the k = 0 modes are end-ring modes with no rung current (counter- and co-rotating ring currents).
 * Where the capacitors sit sets the ordering. **Low-pass** (C in the rungs): k = 1 is the lowest resonance above
   DC and k = N/2 the highest. **High-pass** (C in the end-ring segments): the order flips, the end-ring k = 0 modes
   are on top and k = 1 is the highest rung mode below them. **Band-pass** has both.
 
-So a full-wave solve returns a crowded spectrum (20 modes between 111 and 466 MHz for the default coil), and only one
-pair images. This tool finds that pair automatically.
+So a full-wave solve returns a crowded spectrum (20 modes between 128 and 483 MHz for the tuned default coil), and
+only one pair images. This tool finds that pair automatically.
 
 ## What it does
 
@@ -74,6 +74,10 @@ birdcage solve --case runs/lp16 --np 4      # Palace (on Windows it runs inside 
 birdcage modes --case runs/lp16             # modes.json + figures in runs/lp16/figs
 birdcage tune  --case runs/lp16 --tol 0.005 # rescale C until the k=1 pair is within 0.5 % of 127.7 MHz
 ```
+
+`tune` starts from the plain (f/f0)² scaling, or from `--slope` (d(1/f²)/dC measured on a cheaper mesh), then takes
+secant steps on 1/f². `tools/make_video.py`, `tools/export_docs.py` and `tools/hero.py` rebuild the clip, the
+figures in `docs/img` and the hero image from a solved case.
 
 `birdcage build --help` lists every option: rung and ring widths, gap, high-pass and band-pass, shield size and end
 caps, phantom, mesh sizes and FE order. Palace is called as `run_palace config.json <np>` (a wrapper around the
@@ -116,11 +120,11 @@ at 1.83 pF), and two pairs at 222.6 and 393.3 MHz whose capacitors carry about 0
 modes. Those two pairs do not move when C changes, so they are resonances of the end rings and rung halves with
 their stray capacitance, not birdcage modes.
 
-The ladder model puts k = 1 13 % too high at the first-guess capacitor. Fitting 1/f² = L_eff (C + C_stray) to the
-three fine-mesh solves gives L_eff = 511 nH, against 553 nH from the ladder model (the shield end caps, which the
-model leaves out, lower the ring inductance), plus C_stray = 1.21 pF in parallel with each lumped capacitor, which is
+At the first-guess capacitor Palace puts k = 1 13 % below the ladder value. Fitting 1/f² = L_eff (C + C_stray) to the
+three fine-mesh solves gives L_eff = 511 nH, against 553 nH from the ladder model (most likely because of the shield
+end caps, which the model leaves out and which lower the ring inductance), plus C_stray = 1.21 pF in parallel with each lumped capacitor, which is
 two-thirds of its final value. At 3 T a 16-rung low-pass head coil needs only a couple of picofarads per rung, so the
-stray capacitance to the shield and between the strips matters as much as the lumped part. This is the usual argument
+distributed capacitance of the strips (to the shield and to each other) matters as much as the lumped part. This is the usual argument
 for high-pass or band-pass designs at 3 T and above.
 
 ![|B| maps per mode](docs/img/b1_maps.png)
@@ -141,13 +145,27 @@ gives an azimuthal field that vanishes on the axis (33 %).
 
 The last step moves k = 1 by 0.4 % and k = 8 by 0.7 %. Expect the production numbers to carry about that much
 discretisation error; the next refinement step would likely need more RAM than the 32 GB machine used here has. The
-tuning steps on the production mesh took 14.2 and 13.6 min each (4 MPI ranks, a second Palace job sharing the 8-thread
-machine). Palace estimates the peak memory at 16.2 GB. Retuning took two solves: the first step used the 1/f² slope
+tuning steps on the production mesh took 14.2 and 13.6 min each (4 MPI ranks on an 8-thread machine that was at
+times shared with another Palace job). Palace estimates the peak memory at 16.2 GB. Retuning took two solves: the first step used the 1/f² slope
 from a pair of coarse solves and landed at +0.24 %, and a secant step then landed at +0.001 %.
 
 ![Mesh: y = 0 slice through the volume mesh and the surface mesh at the capacitor gaps](docs/img/mesh.png)
 
 LOADED_PLACEHOLDER
+
+## High-pass check (coarse mesh, not tuned)
+
+`birdcage build --type highpass` moves the capacitors into the 32 end-ring segments (ladder first guess 36.9 pF each).
+One coarse solve (order 1, 100 k unknowns, 2.2 min on 3 ranks) shows the inverted spectrum the theory predicts:
+k = 8 is now the lowest mode (58.5 MHz) and k = 1 the highest rung mode (135.2 MHz, ladder 127.7 MHz, ROI std/mean
+3.6 %). Above it sit the two end-ring modes: co-rotating at 163.4 MHz (ladder 161.8 MHz; ring currents in the same
+sense, axial field, transverse fraction 0.10) and counter-rotating at 163.7 MHz (ladder k = 0 at 155.7 MHz). The rung
+modes and the counter-rotating mode are 5 to 13 % above the ladder values (the co-rotating mode 1 %). The shift has
+the opposite sign to the low-pass coil: with 37 pF per gap the stray capacitance hardly matters, and the shield end caps lower the inductance. This case is a functional
+check on a coarse mesh only; it has not been retuned or refined.
+
+![High-pass mode spectrum](docs/img/highpass_spectrum.png)
+
 
 ## Limits
 
@@ -158,8 +176,8 @@ LOADED_PLACEHOLDER
 * The quadrature B1+ map is a superposition of the two k = 1 eigenmodes, which is what an ideal, decoupled
   quadrature drive excites at resonance. It is not a driven two-port solve.
 * The ladder model is quasi-static and ignores stray capacitance. It is a starting point, not the answer.
-* Only the low-pass coil has been taken through the full tune loop here. High-pass and band-pass geometry, capacitor
-  placement and ladder formulas are implemented, but their Palace results are not yet verified.
+* Only the low-pass coil has been taken through mesh refinement and the tune loop. The high-pass coil has one coarse
+  solve (above). Band-pass geometry and ladder formulas are implemented but have not been solved in Palace yet.
 
 ## References
 

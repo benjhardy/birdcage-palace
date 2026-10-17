@@ -160,8 +160,10 @@ def _spectrum_axes(ax, res, title=None, legend=True, label_target=True, legend_l
     if legend:
         if legend_loc:
             ax.legend(frameon=False, loc=legend_loc, bbox_to_anchor=(0.93, 1.02))
-        else:
+        elif lowpass:
             ax.legend(frameon=False, loc="lower right", bbox_to_anchor=(1.0, 0.03))
+        else:
+            ax.legend(frameon=False, loc="upper right", bbox_to_anchor=(0.92, 1.0))
     if title:
         ax.set_title(title, loc="left")
 
