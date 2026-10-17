@@ -1,0 +1,168 @@
+"""birdcage: design, build, solve and identify the modes of an MRI birdcage coil with Gmsh + Palace.
+
+    birdcage build --legs 16 --diameter 0.28 --length 0.25 --type lowpass --b0 3.0 --shield 0.34 --out runs/lp16
+    birdcage solve --case runs/lp16 --np 4
+    birdcage modes --case runs/lp16            # modes.json + figures
+    birdcage tune  --case runs/lp16 --tol 0.005  # rescale C by (f_sim/f_target)^2 and re-solve until k=1 is on target
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+from pathlib import Path
+
+from .design import CoilDesign, Phantom
+from . import ladder
+
+
+def _design_from_args(a) -> CoilDesign:
+    d = CoilDesign(legs=a.legs, diameter=a.diameter, length=a.length, leg_width=a.leg_width, ring_width=a.ring_width,
+                   gap=a.gap, coil_type=a.type, b0=a.b0, shield_diameter=None if a.shield in (0, None) else a.shield,
+                   shield_length=a.shield_length, shield_ends=a.shield_ends, c_leg=a.c_leg, c_ring=a.c_ring,
+                   bandpass_ratio=a.bandpass_ratio, h_coil=a.h_coil, h_gap=a.h_gap, h_max=a.h_max, order=a.order)
+    if a.phantom:
+        d.phantom = Phantom(radius=a.phantom_radius, length=a.phantom_length, eps_r=a.phantom_eps, sigma=a.phantom_sigma)
+    return d
+
+
+def cmd_build(a) -> None:
+    from .geometry import build
+    from .palace import write_config
+    des = _design_from_args(a)
+    des.validate()
+    an = ladder.analytic(des)
+    if des.c_leg is None and an["c_leg"] is not None:
+        des.c_leg = an["c_leg"]
+    if des.c_ring is None and an["c_ring"] is not None:
+        des.c_ring = an["c_ring"]
+    an = ladder.analytic(des)  # spectrum with the capacitors actually used
+    out = Path(a.out)
+    t0 = time.time()
+    info = build(des, out)
+    (out / "analytic.json").write_text(json.dumps(an, indent=1))
+    write_config(des, out, n_modes=a.modes)
+    print(f"built {out}: {info['tets']} tets, {len(info['ports'])} capacitors, {time.time() - t0:.1f} s")
+    print(f"f_target {des.f_larmor / 1e6:.2f} MHz; first-guess C_leg={_pf(des.c_leg)} C_ring={_pf(des.c_ring)}")
+    print("ladder spectrum (MHz):", ", ".join(f"k{k}:{f / 1e6:.1f}" for k, f in zip(an["spectrum"]["k"], an["spectrum"]["f_hz"])))
+
+
+def _pf(c):
+    return "-" if c is None else f"{c * 1e12:.3f} pF"
+
+
+def cmd_solve(a) -> dict:
+    from .palace import palace_busy, run
+    np_ = a.np
+    busy = palace_busy()
+    if busy and np_ > a.np_shared:
+        print(f"another Palace job is running ({len(busy)} processes): using {a.np_shared} ranks")
+        np_ = a.np_shared
+    st = run(Path(a.case), np_)
+    print("solve:", st)
+    return st
+
+
+def cmd_modes(a) -> dict:
+    from .modes import analyse, compare
+    case = Path(a.case)
+    res = analyse(case)
+    an = json.loads((case / "analytic.json").read_text())
+    res["comparison"] = compare(an, res)
+    res["analytic"] = an
+    st = case / "solve_stats.json"
+    res["solve_stats"] = json.loads(st.read_text()) if st.exists() else None
+    (case / "modes.json").write_text(json.dumps(res, indent=1))
+    print(f"{'m':>3} {'f (MHz)':>9} {'Q':>9}  {'label':<28} {'purity':>6} {'ROI std/mean':>12} {'transverse':>10}")
+    for m in res["modes"]:
+        q = m["Q"]
+        print(f"{m['m']:>3} {m['f_mhz']:9.2f} {q if q < 1e6 else float('inf'):9.1f}  {m['label'] + (' <- homogeneous' if m['homogeneous'] else ''):<28}"
+              f" {m.get('k_purity', 0):6.3f} {m.get('roi_bt_cv', 0):12.3f} {m.get('roi_transverse_frac', 0):10.3f}")
+    hp = res.get("homogeneous_pair")
+    if hp:
+        print("homogeneous k=1:", json.dumps({k: (round(v, 4) if isinstance(v, float) else v) for k, v in hp.items()}))
+    if not a.no_figs:
+        from . import plots
+        plots.all_figures(case, Path(a.figdir) if a.figdir else case / "figs")
+    return res
+
+
+def cmd_tune(a) -> None:
+    from .design import CoilDesign
+    from .palace import write_config
+    case = Path(a.case)
+    hist = []
+    for it in range(a.max_iter):
+        des = CoilDesign.from_json(case / "design.json")
+        if not (case / "postpro" / "eig.csv").exists() or it > 0 or a.resolve_first:
+            cmd_solve(a)
+        a.no_figs = True
+        res = cmd_modes(a)
+        f = res["homogeneous_pair"]["f_mean_mhz"] * 1e6
+        err = f / des.f_larmor - 1
+        hist.append({"iter": it, "c_leg": des.c_leg, "c_ring": des.c_ring, "f_k1_mhz": f / 1e6, "rel_err": err,
+                     "solve": json.loads((case / "solve_stats.json").read_text())})
+        print(f"tune iter {it}: k=1 at {f / 1e6:.3f} MHz ({err * 100:+.2f} %), C_leg={_pf(des.c_leg)} C_ring={_pf(des.c_ring)}")
+        (case / "tune_history.json").write_text(json.dumps(hist, indent=1))
+        if abs(err) < a.tol:
+            break
+        s = (f / des.f_larmor) ** 2
+        des.c_leg = des.c_leg * s if des.c_leg else None
+        des.c_ring = des.c_ring * s if des.c_ring else None
+        des.to_json(case / "design.json")
+        an = ladder.analytic(des)
+        (case / "analytic.json").write_text(json.dumps(an, indent=1))
+        write_config(des, case, n_modes=json.loads((case / "config.json").read_text())["Solver"]["Eigenmode"]["N"])
+    a.no_figs = False
+    cmd_modes(a)
+
+
+def main(argv=None) -> None:
+    ap = argparse.ArgumentParser(prog="birdcage", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    b = sub.add_parser("build", help="analytic first guess + Gmsh mesh + Palace config")
+    b.add_argument("--legs", type=int, default=16)
+    b.add_argument("--diameter", type=float, default=0.28)
+    b.add_argument("--length", type=float, default=0.25, help="rung length between end-ring centrelines, m")
+    b.add_argument("--leg-width", type=float, default=0.012)
+    b.add_argument("--ring-width", type=float, default=0.015)
+    b.add_argument("--gap", type=float, default=0.005, help="capacitor gap, m")
+    b.add_argument("--type", choices=["lowpass", "highpass", "bandpass"], default="lowpass")
+    b.add_argument("--b0", type=float, default=3.0, help="field strength, T (target = 42.577 MHz/T x B0)")
+    b.add_argument("--shield", type=float, default=0.34, help="shield diameter, m (0 = unshielded, absorbing boundary)")
+    b.add_argument("--shield-length", type=float, default=None)
+    b.add_argument("--shield-ends", choices=["pec", "absorbing"], default="pec")
+    b.add_argument("--c-leg", type=float, default=None, help="F; default from the ladder model")
+    b.add_argument("--c-ring", type=float, default=None, help="F; default from the ladder model")
+    b.add_argument("--bandpass-ratio", type=float, default=1.0)
+    b.add_argument("--phantom", action="store_true")
+    b.add_argument("--phantom-radius", type=float, default=0.08)
+    b.add_argument("--phantom-length", type=float, default=0.20)
+    b.add_argument("--phantom-eps", type=float, default=78.0)
+    b.add_argument("--phantom-sigma", type=float, default=0.6)
+    b.add_argument("--h-coil", type=float, default=0.005)
+    b.add_argument("--h-gap", type=float, default=0.0025)
+    b.add_argument("--h-max", type=float, default=0.035)
+    b.add_argument("--order", type=int, default=2)
+    b.add_argument("--modes", type=int, default=20, help="number of eigenmodes to request")
+    b.add_argument("--out", required=True)
+    b.set_defaults(fn=cmd_build)
+    for name, fn, hlp in (("solve", cmd_solve, "run Palace"), ("modes", cmd_modes, "identify modes, write modes.json + figures"),
+                          ("tune", cmd_tune, "retune C until the k=1 mode is on the Larmor frequency")):
+        s = sub.add_parser(name, help=hlp)
+        s.add_argument("--case", required=True)
+        s.add_argument("--np", type=int, default=4)
+        s.add_argument("--np-shared", type=int, default=4, help="ranks to use when another Palace job is running")
+        s.add_argument("--figdir", default=None)
+        s.add_argument("--no-figs", action="store_true")
+        s.add_argument("--tol", type=float, default=0.005)
+        s.add_argument("--max-iter", type=int, default=4)
+        s.add_argument("--resolve-first", action="store_true")
+        s.set_defaults(fn=fn)
+    a = ap.parse_args(argv)
+    a.fn(a)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "birdcage-palace"
+version = "0.1.0"
+description = "Design, mesh and solve MRI birdcage RF coils with Gmsh and the Palace FEM eigenmode solver, and find the homogeneous k=1 mode"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "Benjamin Hardy"}]
+requires-python = ">=3.10"
+dependencies = ["numpy", "matplotlib", "gmsh>=4.11"]
+
+[project.optional-dependencies]
+render = ["pyvista"]
+
+[project.scripts]
+birdcage = "birdcage_palace.cli:main"
+
+[tool.setuptools]
+packages = ["birdcage_palace"]
