@@ -1,6 +1,6 @@
 # birdcage-palace
 
-**Live / project page: https://benjhardy.github.io/birdcage-palace/** *(placeholder, not yet published)*
+Project page: https://benjhardy.github.io/projects/birdcage-palace/ · part of [benjhardy.github.io](https://benjhardy.github.io)
 
 An open-source, scriptable builder for MRI birdcage RF coils. It sizes the capacitors with a ladder-network model,
 builds the coil in [Gmsh](https://gmsh.info), solves the full-wave eigenmodes with the
