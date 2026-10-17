@@ -180,7 +180,8 @@ k = 8 is now the lowest mode (58.5 MHz) and k = 1 the highest rung mode (135.2 M
 3.6 %). Above it sit the two end-ring modes: co-rotating at 163.4 MHz (ladder 161.8 MHz; ring currents in the same
 sense, axial field, transverse fraction 0.10) and counter-rotating at 163.7 MHz (ladder k = 0 at 155.7 MHz). The rung
 modes and the counter-rotating mode are 5 to 13 % above the ladder values (the co-rotating mode 1 %). The shift has
-the opposite sign to the low-pass coil: with 37 pF per gap the stray capacitance hardly matters, and the shield end caps lower the inductance. This case is a functional
+the opposite sign to the low-pass coil: with 37 pF per gap the stray capacitance hardly matters, and the shield end caps, which the ladder model leaves out, probably lower the
+inductance. This case is a functional
 check on a coarse mesh only; it has not been retuned or refined.
 
 ![High-pass mode spectrum](docs/img/highpass_spectrum.png)
@@ -190,8 +191,9 @@ check on a coarse mesh only; it has not been retuned or refined.
 
 * Simulation only; nothing here is measured. Conductors are lossless PEC sheets and the capacitors are ideal, so
   the unloaded coil has no Q, and the loaded Q counts phantom loss only. The phantom case uses the coarse mesh. Copper and capacitor ESR, cables, baluns, matching and the drive ports are not modelled.
-* The shield is a closed PEC can (end caps 10 cm beyond the rings), not the open-ended shield of a real scanner. That
-  lowers the ring inductance a little; `--shield-ends absorbing` is available but turns the eigenproblem complex.
+* The shield is a closed PEC can (end caps 10 cm beyond the rings), not the open-ended shield of a real scanner. It
+  probably lowers the ring inductance a little. `--shield-ends absorbing` and `--shield 0` (absorbing outer boundary)
+  are implemented but untested, and they turn the eigenproblem complex.
 * The quadrature B1+ map is a superposition of the two k = 1 eigenmodes, which is what an ideal, decoupled
   quadrature drive excites at resonance. It is not a driven two-port solve.
 * The ladder model is quasi-static and ignores stray capacitance. It is a starting point, not the answer.
