@@ -4,6 +4,12 @@
     birdcage solve --case runs/lp16 --np 4
     birdcage modes --case runs/lp16            # modes.json + figures
     birdcage tune  --case runs/lp16 --tol 0.005  # rescale C by (f_sim/f_target)^2 and re-solve until k=1 is on target
+
+Symmetry (low-pass): build a quarter model with PEC on x=0 and PMC on y=0 (keeps the k=1 member with B1 along y),
+then reuse its mesh for another PEC/PMC combination:
+
+    birdcage build ... --symmetry quarter --sym-bc x=pec,y=pmc --out runs/q_ep
+    birdcage variant --case runs/q_ep --sym-bc x=pmc,y=pec --out runs/q_me
 """
 from __future__ import annotations
 
@@ -21,7 +27,8 @@ def _design_from_args(a) -> CoilDesign:
     d = CoilDesign(legs=a.legs, diameter=a.diameter, length=a.length, leg_width=a.leg_width, ring_width=a.ring_width,
                    gap=a.gap, coil_type=a.type, b0=a.b0, shield_diameter=None if a.shield in (0, None) else a.shield,
                    shield_length=a.shield_length, shield_ends=a.shield_ends, c_leg=a.c_leg, c_ring=a.c_ring,
-                   bandpass_ratio=a.bandpass_ratio, h_coil=a.h_coil, h_gap=a.h_gap, h_max=a.h_max, order=a.order)
+                   bandpass_ratio=a.bandpass_ratio, h_coil=a.h_coil, h_gap=a.h_gap, h_max=a.h_max, order=a.order,
+                   symmetry=a.symmetry, sym_cut=a.sym_cut, sym_bc=_parse_bc(a.sym_bc), rung_offset=a.rung_offset)
     if a.phantom:
         d.phantom = Phantom(radius=a.phantom_radius, length=a.phantom_length, eps_r=a.phantom_eps, sigma=a.phantom_sigma)
     return d
@@ -47,6 +54,60 @@ def cmd_build(a) -> None:
     print(f"built {out}: {info['tets']} tets, {len(info['ports'])} capacitors, {time.time() - t0:.1f} s")
     print(f"f_target {des.f_larmor / 1e6:.2f} MHz; first-guess C_leg={_pf(des.c_leg)} C_ring={_pf(des.c_ring)}")
     print("ladder spectrum (MHz):", ", ".join(f"k{k}:{f / 1e6:.1f}" for k, f in zip(an["spectrum"]["k"], an["spectrum"]["f_hz"])))
+
+
+def _parse_bc(txt: str | None) -> dict:
+    bc = {"x": "pec", "y": "pmc", "z": "pec"}
+    for item in (txt or "").split(","):
+        if item.strip():
+            k, v = item.split("=")
+            bc[k.strip().lower()] = v.strip().lower()
+    return bc
+
+
+def cmd_variant(a) -> None:
+    """Copy a built case (same mesh) with other symmetry-plane conditions, capacitor value, FE order or mode count."""
+    import shutil
+    from .palace import write_config
+    src, out = Path(a.case), Path(a.out)
+    out.mkdir(parents=True, exist_ok=True)
+    info = json.loads((src / "build.json").read_text())
+    for f in (info["mesh"], "build.json", "surfaces.json", "analytic.json"):
+        if (src / f).exists() and not (out / f).exists():
+            shutil.copy(src / f, out / f)
+    des = CoilDesign.from_json(src / "design.json")
+    if a.sym_bc:
+        des.sym_bc = _parse_bc(a.sym_bc)
+    if a.c_leg:
+        des.c_leg = a.c_leg
+    if a.order:
+        des.order = a.order
+    if a.c_rungs:
+        des.c_leg_rungs = [float(x) for x in json.loads(Path(a.c_rungs).read_text())]
+    des.validate()
+    des.to_json(out / "design.json")
+    cfg = json.loads((src / "config.json").read_text())
+    write_config(des, out, n_modes=a.modes or cfg["Solver"]["Eigenmode"]["N"], target_hz=cfg["Solver"]["Eigenmode"]["Target"] * 1e9)
+    print(f"variant {out}: sym_bc={ {k: des.sym_bc[k] for k in des.planes} } C_leg={_pf(des.c_leg)} order={des.order}")
+
+
+def cmd_portcase(a) -> None:
+    """Copy a built case (same mesh) as a port-tuning case: every capacitor gap a resistive port, driven sweep."""
+    import shutil
+    from .palace import write_driven_config
+    src, out = Path(a.case), Path(a.out)
+    out.mkdir(parents=True, exist_ok=True)
+    info = json.loads((src / "build.json").read_text())
+    for f in (info["mesh"], "build.json", "surfaces.json", "analytic.json"):
+        if (src / f).exists() and not (out / f).exists():
+            shutil.copy(src / f, out / f)
+    des = CoilDesign.from_json(src / "design.json")
+    if a.sym_bc:
+        des.sym_bc = _parse_bc(a.sym_bc)
+    des.validate()
+    des.to_json(out / "design.json")
+    write_driven_config(des, out, a.fmin * 1e6, a.fmax * 1e6, a.fstep * 1e6, a.r_ref, a.adaptive_tol, a.max_samples)
+    print(f"port case {out}: {len(info['ports'])} ports, R_ref {a.r_ref:g} ohm, {a.fmin:g}-{a.fmax:g} MHz")
 
 
 def _pf(c):
@@ -154,8 +215,35 @@ def main(argv=None) -> None:
     b.add_argument("--h-max", type=float, default=0.035)
     b.add_argument("--order", type=int, default=2)
     b.add_argument("--modes", type=int, default=20, help="number of eigenmodes to request")
+    b.add_argument("--symmetry", choices=["none", "half", "quarter", "eighth", "zhalf"], default="none",
+                   help="model 1/2 (x>=0), 1/4 (x,y>=0), 1/8 (x,y,z>=0) or the z>=0 half (all rungs) of a low-pass coil")
+    b.add_argument("--sym-cut", choices=["between", "through"], default="between",
+                   help="symmetry planes between rungs (cage rotated by pi/N, default) or through rung centres")
+    b.add_argument("--sym-bc", default="x=pec,y=pmc,z=pec",
+                   help="PEC or PMC on each plane, e.g. x=pec,y=pmc (z=0 must be PEC)")
+    b.add_argument("--rung-offset", type=float, default=None, help="angle of rung 0, rad (default 0, or pi/N with --sym-cut between)")
     b.add_argument("--out", required=True)
     b.set_defaults(fn=cmd_build)
+    v = sub.add_parser("variant", help="copy a built case (same mesh) with other plane conditions / C / order / modes")
+    v.add_argument("--case", required=True)
+    v.add_argument("--out", required=True)
+    v.add_argument("--sym-bc", default=None)
+    v.add_argument("--c-leg", type=float, default=None)
+    v.add_argument("--order", type=int, default=None)
+    v.add_argument("--modes", type=int, default=None)
+    v.add_argument("--c-rungs", default=None, help="JSON file with one capacitor value (F) per rung")
+    v.set_defaults(fn=cmd_variant)
+    pc = sub.add_parser("portcase", help="copy a built case as a driven port-tuning case (gaps -> resistive ports)")
+    pc.add_argument("--case", required=True)
+    pc.add_argument("--out", required=True)
+    pc.add_argument("--sym-bc", default=None)
+    pc.add_argument("--r-ref", type=float, default=500.0, help="port reference resistance, ohm")
+    pc.add_argument("--fmin", type=float, default=100.0, help="MHz")
+    pc.add_argument("--fmax", type=float, default=160.0, help="MHz")
+    pc.add_argument("--fstep", type=float, default=2.0, help="MHz (the adaptive ROM is evaluated, and post-processed, at every step)")
+    pc.add_argument("--adaptive-tol", type=float, default=1e-5)
+    pc.add_argument("--max-samples", type=int, default=40)
+    pc.set_defaults(fn=cmd_portcase)
     for name, fn, hlp in (("solve", cmd_solve, "run Palace"), ("modes", cmd_modes, "identify modes, write modes.json + figures"),
                           ("tune", cmd_tune, "retune C until the k=1 mode is on the Larmor frequency")):
         s = sub.add_parser(name, help=hlp)

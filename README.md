@@ -187,6 +187,115 @@ check on a coarse mesh only; it has not been retuned or refined.
 ![High-pass mode spectrum](docs/img/highpass_spectrum.png)
 
 
+## Symmetry planes
+
+Simulation only. The coil has the mirror symmetries of a square (16 rungs), so one linear member of the k = 1 pair can
+be solved on a quarter of the domain, with a PEC wall on one cut plane and a PMC wall on the other. Same mesh density
+as the production full model (5 / 2.5 / 35 mm, order 2), same capacitor (1.828 pF). Numbers are in
+[`results/lp16_symmetry.json`](results/lp16_symmetry.json).
+
+![Quarter model: x = 0 plane PEC (orange), y = 0 plane PMC (green)](docs/img/symmetry_quarter_model.png)
+
+```bash
+birdcage build ... --symmetry quarter --sym-bc x=pec,y=pmc --out runs/q_em   # B1 along y
+birdcage variant --case runs/q_em --sym-bc x=pmc,y=pec --out runs/q_me        # same mesh, the partner (B1 along x)
+birdcage solve --case runs/q_em && birdcage modes --case runs/q_em             # fields and rung currents unfolded to the full coil
+```
+
+**Which plane is which.** Take the member with rung currents I_n ∝ cos φ_n. A +z current at φ = 0 and a −z current at
+φ = π both give B along −y at the centre, so this member's B1 is along y. Mirror it in the plane x = 0 (φ → π − φ):
+cos changes sign, so the rung currents, which run parallel to that plane, are antisymmetric across it. The image of a
+tangential current in a perfect electric conductor is reversed, so x = 0 is a **PEC plane** (tangential E = 0; B1
+lies in it). Mirror it in y = 0 (φ → −φ): cos is unchanged, the currents are symmetric, and y = 0 is a **PMC plane**
+(tangential H = 0; B1 crosses it at right angles). In short, the PEC plane contains B1 and the PMC plane is
+perpendicular to it. The x-polarised member (sin φ_n) has the two swapped.
+
+The full-model field confirms this. Rotating the solved pair so that one member has B1 along y and mirroring its ROI
+field (938 point pairs per plane):
+
+| member | plane | residual if PEC, \|B(Mr) − M B(r)\| / \|B\| | residual if PMC, \|B(Mr) + M B(r)\| / \|B\| | plane is |
+|---|---|---|---|---|
+| B1 along y | x = 0 | 0.66 % | 200 % | PEC |
+| B1 along y | y = 0 | 200 % | 0.67 % | PMC |
+| B1 along x | x = 0 | 200 % | 0.66 % | PMC |
+| B1 along x | y = 0 | 0.65 % | 200 % | PEC |
+
+Its rung currents fit −cos φ_n with a residual of 0.03 % (B along +y needs I ∝ −cos φ_n with this sign convention). In
+Palace the PEC plane goes into `Boundaries.PEC`; the PMC plane is simply left without a boundary condition, because
+PMC is the natural boundary of the curl-curl formulation (Palace says so in its log: "PMC/ZeroCharge condition is
+assumed"). Fields and capacitor currents are unfolded to the full coil with the mirror rules B(Mr) = +M B(r) across a
+PEC plane and −M B(r) across a PMC plane (rung current odd and even, respectively).
+
+**Where the planes go.** With rungs at φ_n = 2πn/N the planes x = 0 and y = 0 pass through four rung centres, and
+the plane cuts those rungs and their capacitors lengthwise. Palace defines a lumped element by its circuit value and
+converts it to a per-square value with the element's own width and length, Cs = C · l / w. Half the width at the same
+voltage carries half the current, so the half element needs **C / 2** (Cs is then unchanged; the Palace log shows
+0.7616 pF/sq on every element). On a PEC plane the half rung is shorted by the wall and carries no current, which is
+what the cos φ member has there anyway. Both versions were solved (quarter, x = 0 PEC, y = 0 PMC):
+
+| quarter model | k = 1 (MHz) |
+|---|---|
+| planes between rungs (cage rotated by π/16) | 127.61 |
+| planes through rungs, half element C / 2 | 127.70 |
+| planes through rungs, full C on the half element (wrong) | 117.93 (−7.6 %) |
+| full model, the pair | 127.73 (127.726 / 127.741) |
+
+The default is **between rungs** (rotate the cage by π/N): no element is cut, each quarter holds four whole rungs with
+the same C, and the z = 0 rule below is the only special case. It needs N divisible by 4.
+
+**The z = 0 midplane (eighth model).** The capacitor gaps sit on it. In every ladder mode the rung current crosses
+z = 0 and continues in the same direction, and the two end rings carry opposite currents, so the tangential E is odd
+in z: z = 0 is a PEC plane. A PEC wall forces only the tangential E to zero; the gap field E_z is normal to the wall
+and is allowed, so the capacitor is not shorted. The wall cuts the element across its length: each half sees half the
+voltage at the full current, so the half element needs **2C** (again the same Cs). This is implemented
+(`--symmetry eighth`). The z-even family, which a PMC wall at z = 0 would keep, has no voltage across the gaps; it
+contains the 222 MHz pair whose capacitors carry no current, which the eighth model indeed no longer returns.
+
+**Symmetry filters the spectrum.** A quarter model only supports modes with its own parities. For the rotated cage
+(rungs at (2n+1)π/16) the four combinations split the 16 ladder modes into four families of four:
+
+| x = 0 | y = 0 | rung currents | ladder modes kept | k = 1 | modes found below 490 MHz (MHz) |
+|---|---|---|---|---|---|
+| PEC | PMC | cos kφ, k odd | k = 1, 3, 5, 7 | B1 along y | 127.61, 222.46 (no cap. current), 242.07, 279.94, 294.84 |
+| PMC | PEC | sin kφ, k odd | k = 1, 3, 5, 7 | B1 along x | 127.66, 222.51 (no cap. current), 242.07, 279.94, 294.70 |
+| PMC | PMC | cos kφ, k even | k = 0, 2, 4, 6 | none | 202.72, 265.18, 289.46, 393.19 (no cap. current), 483.51 |
+| PEC | PEC | sin kφ, k even | k = 2, 4, 6, 8 | none | 202.70, 265.13, 289.36, 296.51, 393.06 (no cap. current) |
+
+(k = N/2 = 8 is a sine pattern on the rotated cage, cos 8φ_n = 0, so it appears only in PEC/PEC; k = 0 is a cosine
+pattern.) The union of the four runs is exactly the full model's 20 modes: every one is matched by type and k, the
+largest frequency difference is 0.11 %, and no run returns an extra mode below 490 MHz. A degenerate pair is split
+across two runs, so the pair splitting itself (15 kHz in the full model, a mesh effect) needs both runs; on one
+quarter mesh the two k = 1 members differ by 56 kHz (0.04 %), because that mesh is not symmetric about the diagonal.
+For finding the imaging mode this filtering helps: in PEC/PMC the homogeneous mode is the lowest eigenvalue and only
+four other modes lie below 300 MHz.
+
+![Which modes each PEC/PMC combination keeps](docs/img/symmetry_spectrum.png)
+
+**Full vs quarter vs eighth** (same mesh density, order 2, C = 1.828 pF; MUMPS, 4 ranks):
+
+| | full | quarter (x = 0 PEC, y = 0 PMC) | eighth (+ z = 0 PEC) |
+|---|---|---|---|
+| k = 1 (MHz) | 127.73 (pair mean) | 127.61 (−0.10 %) | 127.68 (−0.05 %) |
+| ROI std/mean of \|B_t\|, linear member | 4.03 % | 4.04 % | 4.08 % |
+| quadrature B1+, ROI std/mean | 2.35 % | 2.32 % (two quarter runs) | |
+| tetrahedra | 169 k | 44 k | 23 k |
+| unknowns | 1.12 M | 0.30 M (3.8×) | 0.16 M (7.2×) |
+| peak memory (Palace estimate) | 16.4 GB | 3.7 GB (4.4×) | 2.1 GB (7.8×) |
+| Palace time, whole run | 12.8 min (20 modes) | 1.2 min (10 modes) | 4.0 min (10 modes), CPU shared |
+| factorisation (setup + preconditioner) | 359 s | 25 s (14×) | 77 s, CPU shared |
+
+The frequency differences are within the 0.4 % discretisation error of this mesh density (see the mesh-convergence
+table above) and are of the size one expects between two different meshes at that density. The quarter run asked for
+10 modes and the full run for 20; the factorisation row compares the part that does not depend on the mode count.
+On a free machine one quarter run took 71 s, so all four (the whole spectrum) take under 5 min against 12.8 min for one
+full run. All runs used 4 MPI ranks. Another job (8 ranks) shared the 8-thread machine during the eighth-model run
+and during the other three quarter runs, so their times are not comparable and are not used here; the unknowns and
+memory are unaffected.
+
+![k = 1 field, full model vs mirrored quarter model](docs/img/symmetry_b1_compare.png)
+
+![Cost of one eigen solve: full, quarter, eighth](docs/img/symmetry_costs.png)
+
 ## Limits
 
 * Simulation only; nothing here is measured. Conductors are lossless PEC sheets and the capacitors are ideal, so

@@ -34,6 +34,27 @@ def probe_points(des: CoilDesign, h_plane: float = 0.006, h_roi: float = 0.012) 
     return {"axial": [_f(p) for p in ax], "coronal": [_f(p) for p in cor], "roi": [_f(p) for p in roi]}
 
 
+def symmetry_reps(points: list, planes: list[str]) -> tuple[list, list[int], list[list[int]]]:
+    """Map every full-domain probe to its mirror image in the modelled part (|x|, |y|, |z| on the cut axes).
+
+    Returns the unique representative points, the index of each full point's representative, and which axes were
+    flipped to reach it (the field there is rebuilt from the representative by the mirror rule of each plane).
+    """
+    reps, key_idx, rep_index, flips = [], {}, [], []
+    for p in points:
+        q, fl = list(p), []
+        for i, a in enumerate("xyz"):
+            if a in planes and q[i] < 0:
+                q[i], fl = -q[i], fl + [i]
+        key = tuple(round(c, 7) for c in q)
+        if key not in key_idx:
+            key_idx[key] = len(reps)
+            reps.append(q)
+        rep_index.append(key_idx[key])
+        flips.append(fl)
+    return reps, rep_index, flips
+
+
 def write_config(des: CoilDesign, case: Path, n_modes: int = 20, target_hz: float | None = None,
                  tol: float = 1e-8, save: int = 0, probes: bool = True) -> dict:
     case = Path(case)
@@ -44,12 +65,19 @@ def write_config(des: CoilDesign, case: Path, n_modes: int = 20, target_hz: floa
         p = des.phantom
         mats.append({"Attributes": [a["phantom"]], "Permittivity": p.eps_r, "Permeability": 1.0, "Conductivity": p.sigma})
     pec = [a["coil"]] + ([a["shield"]] if a.get("shield") else [])
+    # Symmetry planes: PEC is set explicitly; PMC (tangential H = 0) is Palace's natural boundary, so a PMC plane is
+    # simply left out of the boundary list.
+    sym = a.get("sym") or {}
+    pec += [sym[ax] for ax in sorted(sym) if des.sym_bc.get(ax) == "pec"]
     bnd = {"PEC": {"Attributes": pec}}
     if a.get("absorbing"):
         bnd["Absorbing"] = {"Attributes": [a["absorbing"]], "Order": 1}
     lp = []
     for i, p in enumerate(info["ports"], start=1):
         c = des.c_leg if p["kind"] == "leg" else des.c_ring
+        if p["kind"] == "leg" and des.c_leg_rungs:
+            c = des.c_leg_rungs[p["n"]]
+        c = c * p.get("c_scale", 1.0)
         lp.append({"Index": i, "Attributes": [p["attr"]], "Direction": p["dir"], "C": c})
     bnd["LumpedPort"] = lp
     if target_hz is None:  # search from well below the lowest mode we care about
@@ -59,8 +87,14 @@ def write_config(des: CoilDesign, case: Path, n_modes: int = 20, target_hz: floa
     if probes:
         pts = probe_points(des)
         allp = pts["axial"] + pts["coronal"] + pts["roi"]
-        domains["Postprocessing"] = {"Probe": [{"Index": i + 1, "Center": p} for i, p in enumerate(allp)]}
-        (case / "probes.json").write_text(json.dumps({k: len(v) for k, v in pts.items()} | {"points": allp}))
+        meta = {k: len(v) for k, v in pts.items()} | {"points": allp}
+        solve_pts = allp
+        if des.planes:
+            solve_pts, rep_index, flips = symmetry_reps(allp, des.planes)
+            meta |= {"rep_points": solve_pts, "rep_index": rep_index, "flips": flips, "planes": des.planes,
+                     "sym_bc": {ax: des.sym_bc[ax] for ax in des.planes}}
+        domains["Postprocessing"] = {"Probe": [{"Index": i + 1, "Center": p} for i, p in enumerate(solve_pts)]}
+        (case / "probes.json").write_text(json.dumps(meta))
     cfg = {
         "Problem": {"Type": "Eigenmode", "Verbose": 1, "Output": "postpro"},
         "Model": {"Mesh": info["mesh"], "L0": 1.0},
@@ -112,3 +146,47 @@ def run(case: Path, np_: int = 4, palace_cmd: str = "run_palace {cfg} {np}", dis
              "max_rss_one_rank_gb": round(int(rss[-1]) / 1048576, 2) if rss else None}
     (case / "solve_stats.json").write_text(json.dumps(stats, indent=1))
     return stats
+
+
+def write_driven_config(des: CoilDesign, case: Path, f_min_hz: float = 100e6, f_max_hz: float = 160e6,
+                        f_step_hz: float = 2e6, r_ref: float = 500.0, adaptive_tol: float = 1e-5,
+                        max_samples: int = 40) -> dict:
+    """Port-tuning model: every capacitor gap becomes a resistive lumped port (reference r_ref), each its own excitation.
+
+    The driven sweep returns the multi-port S-matrix of the bare coil (no lumped C), which a circuit simulator then
+    terminates with the tuning capacitors and the drive network. A gap cut by a symmetry plane keeps the same
+    per-square resistance (Rs = R w / l): R is divided by the same factor the capacitor is multiplied by.
+    """
+    case = Path(case)
+    info = json.loads((case / "build.json").read_text())
+    a = info["attrs"]
+    mats = [{"Attributes": [a["air"]], "Permittivity": 1.0, "Permeability": 1.0}]
+    if a.get("phantom"):
+        p = des.phantom
+        mats.append({"Attributes": [a["phantom"]], "Permittivity": p.eps_r, "Permeability": 1.0, "Conductivity": p.sigma})
+    pec = [a["coil"]] + ([a["shield"]] if a.get("shield") else [])
+    sym = a.get("sym") or {}
+    pec += [sym[ax] for ax in sorted(sym) if des.sym_bc.get(ax) == "pec"]
+    bnd = {"PEC": {"Attributes": pec}}
+    if a.get("absorbing"):
+        bnd["Absorbing"] = {"Attributes": [a["absorbing"]], "Order": 1}
+    bnd["LumpedPort"] = [{"Index": i, "Attributes": [p["attr"]], "Direction": p["dir"],
+                          "R": r_ref / p.get("c_scale", 1.0), "Excitation": i}
+                         for i, p in enumerate(info["ports"], start=1)]
+    cfg = {
+        "Problem": {"Type": "Driven", "Verbose": 1, "Output": "postpro",
+                    "OutputFormats": {"Paraview": False, "GridFunction": False}},
+        "Model": {"Mesh": info["mesh"], "L0": 1.0},
+        "Domains": {"Materials": mats},
+        "Boundaries": bnd,
+        "Solver": {"Order": des.order, "Device": "CPU",
+                   "Driven": {"Samples": [{"Type": "Linear", "MinFreq": f_min_hz / 1e9, "MaxFreq": f_max_hz / 1e9,
+                                           "FreqStep": f_step_hz / 1e9, "SaveStep": 0}],
+                              "AdaptiveTol": adaptive_tol, "AdaptiveMaxSamples": max_samples},
+                   "Linear": {"Type": "MUMPS", "MGMaxLevels": 1, "KSPType": "GMRES", "Tol": 1e-10, "MaxIts": 200,
+                              "EstimatorTol": 1e-3, "EstimatorMaxIts": 200}},
+    }
+    (case / "config.json").write_text(json.dumps(cfg, indent=1))
+    (case / "driven.json").write_text(json.dumps({"r_ref": r_ref, "f_min_hz": f_min_hz, "f_max_hz": f_max_hz,
+                                                  "f_step_hz": f_step_hz, "adaptive_tol": adaptive_tol}, indent=1))
+    return cfg

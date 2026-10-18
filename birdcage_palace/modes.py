@@ -71,7 +71,72 @@ def load(case: Path) -> dict:
         for (ax, i), v in cols.items():
             B[:, int(i) - 1, "xyz".index(ax)] = v
         res["B"] = B
+    _unfold_symmetry(case, res)
     return res
+
+
+def _unfold_symmetry(case: Path, res: dict) -> None:
+    """Rebuild full-coil probe fields and rung currents from a symmetry-reduced model (in place).
+
+    Mirror rules across a plane with normal axis a (M_a flips component a):
+      PEC plane (tangential E = 0):  E(M r) = -M E(r),  B(M r) = +M B(r),  rung current J_z: odd
+      PMC plane (tangential H = 0):  E(M r) = +M E(r),  B(M r) = -M B(r),  rung current J_z: even
+    A rung lying on a plane (through-rung cut) is modelled as a half rung; the full rung current is twice the
+    half-rung current on a PMC plane and zero on a PEC plane.
+    """
+    pf = case / "probes.json"
+    if not pf.exists():
+        return
+    pr = json.loads(pf.read_text())
+    if "rep_index" not in pr:
+        return
+    bc = pr["sym_bc"]
+    sig = {i: (1.0 if bc[a] == "pec" else -1.0) for i, a in enumerate("xyz") if a in bc}
+    if "B" in res:
+        Br = res["B"]
+        idx = np.array(pr["rep_index"])
+        B = Br[:, idx, :].copy()
+        for j, fl in enumerate(pr["flips"]):
+            for i in fl:
+                f = np.full(3, sig[i])
+                f[i] *= -1
+                B[:, j, :] *= f
+        res["B"] = B
+    des = json.loads((case / "design.json").read_text())
+    info = json.loads((case / "build.json").read_text())
+    if "I" not in res:
+        return
+    N, phi0 = des["legs"], info.get("phi0", 0.0)
+    ports = info["ports"]
+    pphi = np.array([p["phi"] for p in ports])
+    sj = {i: -s for i, s in sig.items()}  # J_z parity: -1 across PEC, +1 across PMC
+    for sym in ("I", "V"):
+        if sym not in res:
+            continue
+        X = res[sym]
+        full = np.zeros((X.shape[0], N), complex)
+        for n in range(N):
+            ph = phi0 + 2 * np.pi * n / N
+            c = [np.cos(ph), np.sin(ph)]
+            fac = 1.0
+            for i in (0, 1):
+                if i not in sig:
+                    continue
+                if abs(c[i]) < 1e-9:  # half rung on the plane: I doubles (PMC) or vanishes (PEC); V is shared
+                    fac *= (1 + sj[i]) if sym == "I" else (1 + sj[i]) / 2
+                elif c[i] < 0:
+                    c[i], fac = -c[i], fac * sj[i]
+            rp = np.arctan2(c[1], c[0])
+            d = np.abs(np.angle(np.exp(1j * (pphi - rp))))
+            j = int(np.argmin(d))
+            if d[j] > 1e-6:
+                raise RuntimeError(f"rung {n}: no image port found")
+            v = X[:, j] * fac
+            if sym == "V":
+                v = v / ports[j].get("l_frac", 1.0)
+            full[:, n] = v
+        res[sym] = full
+    res["ports_unfolded"] = [{"kind": "leg", "n": n, "phi": phi0 + 2 * np.pi * n / N} for n in range(N)]
 
 
 def _dft_power(x: np.ndarray) -> np.ndarray:
@@ -97,7 +162,7 @@ def analyse(case: Path) -> dict:
     pr = json.loads((case / "probes.json").read_text())
     r = load(case)
     N = des["legs"]
-    ports = info["ports"]
+    ports = r.get("ports_unfolded", info["ports"])
     n_ax, n_cor = pr["axial"], pr["coronal"]
     sl = {"axial": slice(0, n_ax), "coronal": slice(n_ax, n_ax + n_cor), "roi": slice(n_ax + n_cor, None)}
     leg_idx = [i for i, p in enumerate(ports) if p["kind"] == "leg"]
@@ -146,7 +211,10 @@ def analyse(case: Path) -> dict:
             md["k_purity"] = 0.0
     # Label modes. k=1 candidates: dominant k=1 with transverse field.
     k1 = [md for md in modes if md.get("k") == 1 and md.get("roi_transverse_frac", 1) > 0.9]
-    k1 = sorted(k1, key=lambda md: md.get("roi_bt_cv", 0))[:2]
+    k1 = sorted(k1, key=lambda md: md.get("roi_bt_cv", 0))
+    # the partner must be (nearly) degenerate with the best mode; a symmetry-reduced model keeps only one member,
+    # and higher k=1-like modes (axial overtones, several hundred MHz up) are not the partner
+    k1 = k1[:1] + [md for md in k1[1:] if abs(md["f_mhz"] / k1[0]["f_mhz"] - 1) < 0.05][:1] if k1 else []
     for md in modes:
         kk = md.get("k")
         if md.get("cap_free"):

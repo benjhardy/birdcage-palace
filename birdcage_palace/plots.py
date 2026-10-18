@@ -61,10 +61,18 @@ def _bt(B):
     return np.sqrt(np.abs(B[:, 0]) ** 2 + np.abs(B[:, 1]) ** 2)
 
 
+def phi0(des: dict) -> float:
+    """Angle of rung 0 (the cage is rotated by pi/N when symmetry planes sit between rungs)."""
+    if des.get("rung_offset") is not None:
+        return des["rung_offset"]
+    sym = des.get("symmetry", "none") != "none" and des.get("sym_cut", "between") == "between"
+    return np.pi / des["legs"] if sym else 0.0
+
+
 def _coil_marks(ax, des, plane):
     R, l, N = des["diameter"] / 2, des["length"], des["legs"]
     if plane == "axial":
-        ph = 2 * np.pi * np.arange(N) / N
+        ph = phi0(des) + 2 * np.pi * np.arange(N) / N
         ax.plot(R * np.cos(ph) * 100, R * np.sin(ph) * 100, "o", ms=3.5, color=ORANGE, mec="white", mew=0.6)
         t = np.linspace(0, 2 * np.pi, 200)
         ax.plot(0.6 * R * np.cos(t) * 100, 0.6 * R * np.sin(t) * 100, "--", lw=0.8, color="white", alpha=0.8)

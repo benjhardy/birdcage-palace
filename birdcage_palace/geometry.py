@@ -20,11 +20,12 @@ from .design import CoilDesign
 
 ATTR_AIR, ATTR_PHANTOM = 1, 2
 ATTR_COIL, ATTR_SHIELD, ATTR_OUTER = 10, 11, 12
+ATTR_SYM = {"x": 13, "y": 14, "z": 15}   # symmetry planes x=0, y=0, z=0
 ATTR_LEG_CAP0, ATTR_RING_TOP0, ATTR_RING_BOT0 = 100, 200, 300
 
 
-def leg_angles(N: int) -> list[float]:
-    return [2 * math.pi * n / N for n in range(N)]
+def leg_angles(N: int, phi0: float = 0.0) -> list[float]:
+    return [phi0 + 2 * math.pi * n / N for n in range(N)]
 
 
 def _strip(occ, R, a0, a1, z0, z1):
@@ -60,8 +61,9 @@ def build(des: CoilDesign, out_dir: Path, name: str = "birdcage", verbosity: int
     gmsh.model.add(name)
     occ = gmsh.model.occ
 
+    phi0 = des.phi0
     sheets = []  # (tag, kind, index)
-    for n, ph in enumerate(leg_angles(N)):
+    for n, ph in enumerate(leg_angles(N, phi0)):
         da = wl / (2 * R)
         z0, z1 = -zr + wr / 2, zr - wr / 2
         if has_leg_caps:
@@ -75,7 +77,7 @@ def build(des: CoilDesign, out_dir: Path, name: str = "birdcage", verbosity: int
             sheets.append((_strip(occ, R, 0, 2 * math.pi, zc - wr / 2, zc + wr / 2), "coil", -1))
             continue
         dg = g / (2 * R)
-        for n, ph in enumerate(leg_angles(N)):  # gap n sits between rung n and n+1
+        for n, ph in enumerate(leg_angles(N, phi0)):  # gap n sits between rung n and n+1
             mid = ph + math.pi / N
             nxt = ph + 2 * math.pi / N + math.pi / N
             # flat patch across the gap (its two z-parallel edges are exactly the segment ends), so the lumped
@@ -88,11 +90,29 @@ def build(des: CoilDesign, out_dir: Path, name: str = "birdcage", verbosity: int
     else:
         Rd, Ld = max(2.0 * R, R + 0.15), l + 0.6
     air = occ.addCylinder(0, 0, -Ld / 2, 0, 0, Ld, Rd)
-    tools = [(2, t) for t, _, _ in sheets]
     ph_tag = None
     if des.phantom:
         p = des.phantom
         ph_tag = occ.addCylinder(0, 0, -p.length / 2, 0, 0, p.length, p.radius)
+    planes = des.planes
+    if planes:
+        # Keep x >= 0 (half), x, y >= 0 (quarter), x, y, z >= 0 (eighth): intersect everything with a box.
+        big = 2 * max(Rd, Ld)
+        lo = [0.0 if a in planes else -big for a in "xyz"]
+        def _box():
+            return occ.addBox(lo[0], lo[1], lo[2], big - lo[0], big - lo[1], big - lo[2])
+        kept = []
+        for t, kind, n in sheets:
+            out, _ = occ.intersect([(2, t)], [(3, _box())], removeObject=True, removeTool=True)
+            kept += [(tt, kind, n) for d, tt in out if d == 2]
+        sheets = kept
+        out, _ = occ.intersect([(3, air)], [(3, _box())], removeObject=True, removeTool=True)
+        air = [t for d, t in out if d == 3][0]
+        if ph_tag is not None:
+            out, _ = occ.intersect([(3, ph_tag)], [(3, _box())], removeObject=True, removeTool=True)
+            ph_tag = [t for d, t in out if d == 3][0]
+    tools = [(2, t) for t, _, _ in sheets]
+    if ph_tag is not None:
         tools.append((3, ph_tag))
     _, omap = occ.fragment([(3, air)], tools)
     occ.synchronize()
@@ -122,6 +142,18 @@ def build(des: CoilDesign, out_dir: Path, name: str = "birdcage", verbosity: int
             if len(up) == 1 and s not in inner:
                 outer.append(s)
     outer = sorted(set(outer))
+    sym_faces = {a: [] for a in planes}
+    if planes:
+        rest = []
+        for s_ in outer:
+            bb = gmsh.model.getBoundingBox(2, s_)
+            for i, a in enumerate("xyz"):
+                if a in planes and abs(bb[i]) < 1e-6 and abs(bb[3 + i]) < 1e-6:
+                    sym_faces[a].append(s_)
+                    break
+            else:
+                rest.append(s_)
+        outer = rest
 
     gmsh.model.addPhysicalGroup(3, vol_air, ATTR_AIR, name="air")
     if vol_ph:
@@ -139,13 +171,25 @@ def build(des: CoilDesign, out_dir: Path, name: str = "birdcage", verbosity: int
             gmsh.model.addPhysicalGroup(2, caps, ATTR_OUTER, name="ends_absorbing")
     else:
         gmsh.model.addPhysicalGroup(2, outer, ATTR_OUTER, name="outer_absorbing")
+    for a, ff in sym_faces.items():
+        gmsh.model.addPhysicalGroup(2, sorted(ff), ATTR_SYM[a], name=f"sym_{a}0")
     ports = []
     for n, ss in sorted(legcap.items()):
         gmsh.model.addPhysicalGroup(2, ss, ATTR_LEG_CAP0 + n, name=f"cap_leg{n}")
-        ports.append({"attr": ATTR_LEG_CAP0 + n, "kind": "leg", "n": n, "phi": leg_angles(N)[n], "dir": [0.0, 0.0, 1.0]})
+        # A capacitor patch cut by a symmetry plane: lengthwise (through-rung cut, half the width) each half carries
+        # half the current at the same voltage -> C/2; across (z=0 plane, half the gap length) each half sees half the
+        # voltage at the same current -> 2C. Both keep Palace's per-square value Cs = C * length / width unchanged.
+        area = sum(gmsh.model.occ.getMass(2, t) for t in ss)
+        bb = [gmsh.model.getBoundingBox(2, t) for t in ss]
+        zlen = max(b[5] for b in bb) - min(b[2] for b in bb)
+        w_frac = area / zlen / wl
+        l_frac = zlen / g
+        ports.append({"attr": ATTR_LEG_CAP0 + n, "kind": "leg", "n": n, "phi": leg_angles(N, phi0)[n],
+                      "dir": [0.0, 0.0, 1.0], "w_frac": round(w_frac, 4), "l_frac": round(l_frac, 4),
+                      "c_scale": round(w_frac, 3) / round(l_frac, 3)})
     for base, side, d in ((ATTR_RING_TOP0, "ring_top", ring_top), (ATTR_RING_BOT0, "ring_bot", ring_bot)):
         for n, ss in sorted(d.items()):
-            mid = leg_angles(N)[n] + math.pi / N
+            mid = leg_angles(N, phi0)[n] + math.pi / N
             # +phi direction on the top ring, -phi on the bottom ring: the same sense as a mesh current.
             sgn = 1.0 if side == "ring_top" else -1.0
             gmsh.model.addPhysicalGroup(2, ss, base + n, name=f"cap_{side}{n}")
@@ -192,7 +236,7 @@ def build(des: CoilDesign, out_dir: Path, name: str = "birdcage", verbosity: int
     gmsh.write(str(msh))
     # Surface triangles of the coil, shield and caps for rendering (small, numpy friendly).
     surf = {}
-    for label, tags in (("coil", sorted(set(coil))), ("caps", cap_surfs), ("outer", outer)):
+    for label, tags in [("coil", sorted(set(coil))), ("caps", cap_surfs), ("outer", outer)] +             [(f"sym_{a}", ff) for a, ff in sym_faces.items()]:
         tris, nodes = [], {}
         for s in tags:
             et, _, en = gmsh.model.mesh.getElements(2, s)
@@ -209,7 +253,9 @@ def build(des: CoilDesign, out_dir: Path, name: str = "birdcage", verbosity: int
     info = {"name": name, "mesh": msh.name, "tets": int(n_tet), "ports": ports, "domain_radius": Rd, "domain_length": Ld,
             "attrs": {"air": ATTR_AIR, "phantom": ATTR_PHANTOM if vol_ph else None, "coil": ATTR_COIL,
                       "shield": ATTR_SHIELD if des.shield_diameter else None,
-                      "absorbing": ATTR_OUTER if (not des.shield_diameter or des.shield_ends != "pec") else None}}
+                      "absorbing": ATTR_OUTER if (not des.shield_diameter or des.shield_ends != "pec") else None,
+                      "sym": {a: ATTR_SYM[a] for a in planes}},
+            "symmetry": des.symmetry, "planes": planes, "phi0": phi0}
     (out_dir / "build.json").write_text(json.dumps(info, indent=1))
     (out_dir / "surfaces.json").write_text(json.dumps(surf))
     des.to_json(out_dir / "design.json")

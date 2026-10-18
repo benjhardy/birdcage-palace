@@ -38,6 +38,13 @@ class CoilDesign:
     h_gap: float = 0.0025         # m, edge length at the capacitor gaps
     h_max: float = 0.035          # m, far-field edge length
     order: int = 2                # FE order in Palace
+    # symmetry (low-pass only): model 1/2, 1/4 or 1/8 of the coil, cut by the planes x=0 (half), x=0 and y=0
+    # (quarter), plus z=0 (eighth). Each plane is PEC or PMC (sym_bc); PMC is Palace's natural boundary.
+    symmetry: str = "none"        # none | half | quarter | eighth | zhalf (z >= 0 only: keeps all rungs)
+    sym_cut: str = "between"      # between (planes between rungs: cage rotated by pi/N) | through (planes through rungs)
+    sym_bc: dict = field(default_factory=lambda: {"x": "pec", "y": "pmc", "z": "pec"})
+    rung_offset: float | None = None  # rad, angle of rung 0; None = 0, or pi/N when sym_cut == "between" and symmetric
+    c_leg_rungs: list | None = None   # F per rung (full-coil rung index), overrides c_leg; for asymmetric tunings
     notes: dict = field(default_factory=dict)
 
     @property
@@ -47,6 +54,16 @@ class CoilDesign:
     @property
     def f_larmor(self) -> float:
         return GAMMA_BAR_1H * self.b0
+
+    @property
+    def planes(self) -> list[str]:
+        return {"none": [], "half": ["x"], "quarter": ["x", "y"], "eighth": ["x", "y", "z"], "zhalf": ["z"]}[self.symmetry]
+
+    @property
+    def phi0(self) -> float:
+        if self.rung_offset is not None:
+            return self.rung_offset
+        return 3.141592653589793 / self.legs if (self.symmetry != "none" and self.sym_cut == "between") else 0.0
 
     @property
     def shield_len(self) -> float | None:
@@ -63,6 +80,20 @@ class CoilDesign:
             raise ValueError("shield must clear the coil")
         if self.leg_width * self.legs >= 0.8 * 3.14159 * self.diameter:
             raise ValueError("rungs overlap")
+        if self.symmetry not in ("none", "half", "quarter", "eighth", "zhalf"):
+            raise ValueError("symmetry must be none, half, quarter, eighth or zhalf")
+        if self.symmetry != "none":
+            if self.coil_type != "lowpass":
+                raise ValueError("symmetry planes are implemented for the low-pass coil only")
+            if self.legs % 4:
+                raise ValueError("symmetry planes need a multiple of 4 rungs")
+            if self.sym_cut not in ("between", "through"):
+                raise ValueError("sym_cut must be between or through")
+            for a in self.planes:
+                if self.sym_bc.get(a) not in ("pec", "pmc"):
+                    raise ValueError(f"sym_bc[{a}] must be pec or pmc")
+            if "z" in self.planes and self.sym_bc["z"] != "pec":
+                raise ValueError("the z=0 plane must be PEC (rung currents pass straight through it)")
 
     def to_json(self, path: Path) -> None:
         d = asdict(self)
