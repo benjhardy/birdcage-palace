@@ -32,13 +32,21 @@ Coarse smoke tests (8 / 4 / 40 mm, order 1, C = 2.81 pF): quarter 24.8 k unknown
 | sym_qt_em | quarter, planes through rungs (half rung, C/2) | PEC / PMC / - | 46 k | 0.30 M | 2-4 min | 323 s wall (shared), 0.31 M | validates the C/2 half element |
 | sym_qt_em_wrongC | as above, full C on the half element | PEC / PMC / - | 46 k | 0.30 M | 2-4 min | 257 s wall (shared) | shows what a wrong half-element C does |
 | sym_e_em | eighth (z=0 PEC, half gap, 2C) | PEC / PMC / PEC | 23 k | 0.15 M | 1-2 min, 2 GB | 139 s Palace (shared), 2.1 GB, 0.16 M | 8x model |
-| sym_q_em_n20 | quarter, 20 modes | PEC / PMC / - | 44 k | 0.30 M | 2 min | | same mode count as the full run (fair timing) |
-| sym_e_m2o3 | eighth, order 3 | PEC / PMC / PEC | 23 k | 0.45 M | 5-10 min, 6-10 GB | | p-refinement |
-| sym_e_m3o2 | eighth, 3.5 / 1.75 / 25 mm, order 2 | PEC / PMC / PEC | 56 k | 0.38 M | 3-6 min, 5 GB | | h-refinement |
-| sym_e_m4o2 | eighth, 2.5 / 1.25 / 18 mm, order 2 | PEC / PMC / PEC | 136 k | 0.9 M | 10-20 min, 12-14 GB | | h-refinement (finer than any full model that fits in 32 GB) |
-| sym_e_m3o3 | eighth, 3.5 / 1.75 / 25 mm, order 3 | PEC / PMC / PEC | 56 k | 1.1 M | 20-40 min, 16-25 GB | | only if the order-3 memory per unknown allows |
+| sym_q_em_n20 | quarter, 20 modes | PEC / PMC / - | 44 k | 0.30 M | 2 min | 410 s wall (shared) | same mode count as the full run (fair timing) |
+| sym_e_m2o3 | eighth, order 3 | PEC / PMC / PEC | 23 k | 0.45 M | 5-10 min, 6-10 GB | 746 s Palace (shared), 6.8 GB, 0.45 M, 127.361 MHz | p-refinement |
+| sym_e_m3o2 | eighth, 3.5 / 1.75 / 25 mm, order 2 | PEC / PMC / PEC | 56 k | 0.38 M | 3-6 min, 5 GB | 414 s Palace (shared), 5.2 GB, 0.37 M, 127.459 MHz | h-refinement |
+| sym_e_m4o2 | eighth, 2.5 / 1.25 / 18 mm, order 2 | PEC / PMC / PEC | 136 k | 0.9 M | 10-20 min, 12-14 GB | 8.3 min (free machine), 14.4 GB, 0.90 M, 127.291 MHz | h-refinement (finer than any full model that fits in 32 GB) |
+| sym_e_m3o3 | eighth, 3.5 / 1.75 / 25 mm, order 3 | PEC / PMC / PEC | 56 k | 1.1 M | 20-40 min, 16-25 GB | replaced by sym_e_m25o3 (4.2 / 2.1 / 30 mm, order 3, 0.68 M, ~10 GB): memory | only if the order-3 memory per unknown allows |
 
-Payoff runs wait for a free machine (no other Palace job) for clean timings and RAM headroom.
+Payoff runs: another agent's Palace jobs ran almost continuously, so the runs started when the RAM allowed (other
+job + this one < 20 GB) and most timings are on a shared CPU. The order-2 h-series converges only as about h^0.55
+(field singularity at the edges of the zero-thickness strips), so two more runs refine only the strip edges and gaps:
+
+| case | mesh (h_coil / h_gap / h_max, mm) | order | tets | unknowns (est.) | estimate | actual |
+|---|---|---|---|---|---|---|
+| sym_e_m25o3 | 4.2 / 2.1 / 30 | 3 | 35 k | 0.68 M | 15-25 min, 10 GB | |
+| sym_e_edge_e25 | 2.5 / 1.25 / 35 | 2 | 62 k | 0.42 M | 5-10 min, 6 GB | |
+| sym_e_edge_e125 | 1.25 / 0.625 / 35 | 2 | 151 k | 1.0 M | 10-20 min, 16 GB | |
 
 ## Port tuning with circuitRF (phase 2)
 

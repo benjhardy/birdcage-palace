@@ -296,10 +296,113 @@ memory are unaffected.
 
 ![Cost of one eigen solve: full, quarter, eighth](docs/img/symmetry_costs.png)
 
+## Port tuning with circuitRF
+
+Simulation only. The eigenmode loop above retunes C with a new full-wave solve per step. Port tuning moves that loop
+into a circuit simulator: every capacitor gap becomes a port, Palace computes the multi-port S-matrix of the bare coil
+once, and circuitRF (open source, run here through its headless CLI) closes the gaps with capacitors and adds the
+drive network, so a capacitor change costs a circuit evaluation instead of a 3D solve.
+
+```bash
+birdcage portcase --case runs/e_em --sym-bc x=pec,y=pmc,z=pec --out runs/pt_e_em   # gaps -> 500 ohm ports, driven sweep
+# ... the same for _me, _mm, _ee; then `birdcage solve` on each
+python tools/port_tune.py assemble --cases runs/pt_e --out runs/pt_e/birdcage16.s16p --rotation-average
+python tools/port_tune.py tune --snp runs/pt_e/birdcage16.s16p --name unloaded --esr 0.68 --band-khz 2 --iters 30
+python tools/port_tune_figs.py --unloaded runs/pt_e/circuitrf/tune_unloaded.json --loaded runs/ptl_e/circuitrf/tune_loaded.json
+```
+
+**The EM step.** The 16 gaps are resistive lumped ports with a 500 Ω reference (close to the gap reactance at
+128 MHz, which keeps S well conditioned), each port its own excitation, and Palace's adaptive fast sweep covers
+100–160 MHz. The two drive ports are two of the same gaps (rungs 0 and 4, 90 degrees apart, as when a coil is fed at
+a rung capacitor), so the Touchstone file is a 16-port (`.s16p`) rather than 16 + 2.
+
+**Symmetry and multi-port excitation.** Driving one gap breaks every mirror symmetry, so a symmetry-reduced model
+does not give an S-matrix column by itself. It helps once it is used explicitly: a quarter or eighth model with given
+PEC/PMC walls computes the response to the symmetry-adapted excitation that drives a gap together with its mirror
+images (signs from the rung-current parity), and character orthogonality inverts the four combinations into every
+entry of the 16 × 16 matrix (`birdcage_palace/sparams.py`). The z = 0 wall is PEC in all four: the z-even family puts no
+voltage across the gaps and does not couple to the ports. So the 16-port costs four eighth-model runs with four
+excitations each (production mesh density, 0.16 M unknowns, 2.0–2.5 GB each; 33 min of Palace time for the four
+unloaded runs and 85 min for the four loaded ones, on a CPU shared with another job). A full model with 16 excitations
+at this density would be a complex 1.12 M-unknown system, about twice the 16.4 GB of the real eigenproblem, which is
+more than this 32 GB machine has.
+
+Checks: on a coarse mesh the rebuilt first column matches a direct full-model driven solve on all 16 ports to
+\|ΔS\| < 4e-3 (\|S11\| ≈ 0.79; the meshes differ). On the production density, closing every gap of the 16-port with
+1.828 pF puts the k = 1 pair at 127.670 / 127.674 MHz; eigen solves of the same eighth mesh give 127.671 / 127.675 MHz
+(1 kHz apart). The rebuilt unloaded matrix is lossless to \|S S^H − I\| < 5.1e-5. The bare-coil S is smooth: the
+adaptive sweep needed 4–5 full solves per excitation, and a cubic spline from the 2 MHz output grid is accurate to
+about 1e-8.
+
+**The circuit step** (circuitRF 1.0.9, `tools/port_tune.py`). Each gap gets its capacitor with an ESR of 0.68 Ω
+(capacitor Q of about 1000 at 128 MHz; the conductors are lossless PEC, so without it the unloaded coil would have
+nothing to match to). Each drive gap is a capacitive divider: the gap capacitor is split into a top capacitor Cd and a
+tap capacitor Cp, and the 50 Ω port is connected across Cp through a series capacitor Cm. Goals at 127.73 MHz:
+\|S11\|, \|S22\| ≤ −20 dB and \|S21\| ≤ −20 dB, over ±2 kHz unloaded and ±100 kHz loaded, minimax optimizer.
+
+1. Resonance only: with every gap at the same C the S-matrix puts the k = 1 pair on 127.73 MHz at **1.825 pF**
+   unloaded and 1.787 pF loaded. The eigenmode loop gave 1.828 pF on the full production mesh; this eighth mesh
+   resonates 0.05 % lower at 1.828 pF, which accounts for the difference.
+2. circuitRF on the rotation-averaged matrix (the exact 16-fold symmetry; averaging changes S by at most 4.5e-4):
+   C on 12 rungs, a trim on rungs 2 and 10, and one divider (Cd, Cp, Cm) shared by both ports. Rungs 2 and 10 lie on
+   the bisector of the two drive rungs, 45 degrees from both, so their C couples the two k = 1 members; the drive gaps
+   also couple weakly through the other modes (a mutual reactance of about −10 Ω on the coarse mesh), and this trim
+   cancels it.
+3. circuitRF on the matrix as solved, where the mesh splits the k = 1 pair by 3.8 kHz: each port gets its own
+   divider (per-port trims), starting from step 2. Unloaded the goals were already met; loaded the trims moved Cd by
+   0.3 % and Cm by 8 % and improved the isolation from −20.2 to −22.6 dB.
+
+| | unloaded (ESR 0.68 Ω) | loaded (saline phantom) |
+|---|---|---|
+| k = 1 with every gap at 1.828 pF (from the 16-port) | 127.670 / 127.674 MHz | 126.871 / 126.883 MHz |
+| every gap equal, C for 127.73 MHz | 1.825 pF | 1.787 pF |
+| C on 12 rungs | **1.844 pF** | **1.632 pF** |
+| C on rungs 2 and 10 (isolation) | 1.841 pF | 1.647 pF |
+| drive gaps: Cd + Cp (series value) | 1.768 + 24.70 pF (1.650 pF) | 2.885 + 5.576 pF (1.901 pF); 2.894 at port 2 |
+| series capacitor to the port, Cm | 20.6 pF | 139.5 / 128.6 pF |
+| worst over the band: \|S11\|, \|S22\|, \|S21\| | −20.0, −20.9, −20.1 dB | −20.0, −20.0, −22.6 dB |
+| circuitRF evaluations, step 2 + step 3 | 102 + 28 | 137 + 97 |
+| k = 1 share of the rung-current power, quadrature drive | 0.990 | 0.923 |
+
+The phantom lowers the k = 1 frequency by 0.6 % at fixed C, as the coarse loaded check above found, so the loaded
+tune needs smaller capacitors. The last row is the fraction of the rung-current power in the k = 1 harmonic when the
+two ports are driven 90 degrees apart (computed from the same 16-port). A first version fed each drive gap through a
+single series capacitor straight across the gap capacitor. That also met all goals, but the loaded match needed
+2.37 pF in series with 50 Ω across the drive gap, which loads those two rungs with more than twice the capacitance of the
+others; the k = 1 share then fell to 0.78 (0.99 unloaded). The divider keeps the capacitance across every gap within
+17 % of the others. circuitRF's response at the optimum agrees with an independent termination of the same 16-port
+in numpy to 6e-5 in \|S\| unloaded and 2e-6 loaded.
+
+![Drive-port S-parameters before and after tuning](docs/img/porttune_sparams.png)
+
+![circuitRF minimax iterations, loaded](docs/img/porttune_iterations.png)
+
+![Capacitor values: eigenmode loop vs port tuning](docs/img/porttune_cvalues.png)
+
+**Verification in Palace.** The tuned capacitors were put into a Palace eigen solve of the z ≥ 0 half of the coil
+(`--symmetry zhalf`: all 16 rungs with the asymmetric tuned set, z = 0 PEC, 0.58 M unknowns, 7.2 GB, 2.3 min of Palace
+time), with the feeds disconnected, so each drive gap holds Cd in series with Cp. The z-half mesh is not the eighth mesh
+the 16-port came from, so the check is the shift from the same mesh with every gap at 1.828 pF:
+
+| capacitors (unloaded) | Palace, z-half model | predicted from the 16-port | shift from uniform C: Palace / 16-port |
+|---|---|---|---|
+| every gap 1.828 pF | 127.737 / 127.747 MHz | 127.670 / 127.674 MHz | |
+| divider tune (above) | 127.902 / 127.919 MHz | 127.831 / 127.851 MHz | +0.169 / +0.169 MHz |
+| first tune (series-capacitor feed) | 129.340 / 129.352 MHz | 129.275 / 129.277 MHz | +1.604 / +1.604 MHz |
+
+The 16-port predicts the shift caused by each tuned capacitor set to within 1 kHz; the 0.055 % offset at uniform C is
+the difference between the two meshes. The feed-disconnected coil resonates above 127.73 MHz because the feed (Cm and
+the 50 Ω source across the tap) adds capacitance; with it connected, circuitRF puts the match on 127.73 MHz. With the
+divider-tuned capacitors the quadrature B1+ has an ROI std/mean of 2.36 %, against 2.33 % at uniform C.
+
+Clip: [`docs/img/birdcage_porttune.mp4`](docs/img/birdcage_porttune.mp4) (silent, 4:5).
+
 ## Limits
 
 * Simulation only; nothing here is measured. Conductors are lossless PEC sheets and the capacitors are ideal, so
-  the unloaded coil has no Q, and the loaded Q counts phantom loss only. The phantom case uses the coarse mesh. Copper and capacitor ESR, cables, baluns, matching and the drive ports are not modelled.
+  the unloaded coil has no Q, and the loaded Q counts phantom loss only. The phantom case uses the coarse mesh. Copper loss, cables and baluns are not modelled. The port-tuning step adds an assumed capacitor ESR (0.68 Ω) and an ideal capacitive-divider feed in the circuit simulator; its ports are referenced individually across each gap (single-ended, no balun), and the drive network is a circuit model, not part of the 3D solve.
+* Symmetry planes are implemented for the low-pass coil with a multiple of four rungs; the z = 0 plane must be PEC.
+  The S-matrix assembly needs the planes between rungs.
 * The shield is a closed PEC can (end caps 10 cm beyond the rings), not the open-ended shield of a real scanner. It
   probably lowers the ring inductance a little. `--shield-ends absorbing` and `--shield 0` (absorbing outer boundary)
   are implemented but untested, and they turn the eigenproblem complex.
