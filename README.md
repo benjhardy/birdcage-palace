@@ -143,8 +143,9 @@ gives an azimuthal field that vanishes on the axis (33 %).
 | 8 / 4 / 40 | 72 k | 2 | 484 k | 111.54 | −1.25 % | 4 | 6.6 min | 6.6 GB |
 | 5 / 2.5 / 35 | 169 k | 2 | 1.12 M | 111.08 | −0.41 % | 4 | 20.4 min | 16.2 GB |
 
-The last step moves k = 1 by 0.4 % and k = 8 by 0.7 %. Expect the production numbers to carry about that much
-discretisation error; the next refinement step would likely need more RAM than the 32 GB machine used here has. The
+The last step moves k = 1 by 0.4 % and k = 8 by 0.7 %. The next refinement step of the full model would need more
+RAM than the 32 GB machine used here has; the symmetry-plane models below go further and put the production k = 1
+about 0.7 % above the converged value (the strip edges, not the bulk mesh, set the error). The
 tuning steps on the production mesh took 14.2 and 13.6 min each (4 MPI ranks on an 8-thread machine that was at
 times shared with another Palace job). Palace estimates the peak memory at 16.2 GB. Retuning took two solves: the first step used the 1/f² slope
 from a pair of coarse solves and landed at +0.24 %, and a secant step then landed at +0.001 %.
@@ -280,21 +281,49 @@ four other modes lie below 300 MHz.
 | quadrature B1+, ROI std/mean | 2.35 % | 2.32 % (two quarter runs) | |
 | tetrahedra | 169 k | 44 k | 23 k |
 | unknowns | 1.12 M | 0.30 M (3.8×) | 0.16 M (7.2×) |
-| peak memory (Palace estimate) | 16.4 GB | 3.7 GB (4.4×) | 2.1 GB (7.8×) |
-| Palace time, whole run | 12.8 min (20 modes) | 1.2 min (10 modes) | 4.0 min (10 modes), CPU shared |
-| factorisation (setup + preconditioner) | 359 s | 25 s (14×) | 77 s, CPU shared |
+| peak memory (Palace estimate) | 16.6 GB | 3.7 GB (4.5×) | 2.1 GB (7.9×) |
+| Palace time, whole run | 11.4 min (20 modes) | 2.2 min (20 modes, 5.3×); 1.2 min (10 modes) | 0.7 min (10 modes) |
+| factorisation (setup + preconditioner) | 309 s | 25 s (12×) | 14 s (22×) |
 
-The frequency differences are within the 0.4 % discretisation error of this mesh density (see the mesh-convergence
-table above) and are of the size one expects between two different meshes at that density. The quarter run asked for
-10 modes and the full run for 20; the factorisation row compares the part that does not depend on the mode count.
-On a free machine one quarter run took 71 s, so all four (the whole spectrum) take under 5 min against 12.8 min for one
-full run. All runs used 4 MPI ranks. Another job (8 ranks) shared the 8-thread machine during the eighth-model run
-and during the other three quarter runs, so their times are not comparable and are not used here; the unknowns and
-memory are unaffected.
+The frequency differences are well inside the discretisation error of this mesh density (about 0.7 %, see below)
+and are of the size one expects between two different meshes at that density. The factorisation row is the part of
+the run that does not depend on the number of modes requested.
+All four quarter runs (the whole spectrum, 10 modes each) take under 5 min against 11.4 min for one full run. All
+timings in this table are from runs on a free machine (8 threads, 4 MPI ranks each); the full model was re-run for
+this comparison (the production solves took 13.6–20.4 min while the machine was at times shared). Another Palace job shared
+the machine during several of the other runs below; those times are marked.
 
 ![k = 1 field, full model vs mirrored quarter model](docs/img/symmetry_b1_compare.png)
 
 ![Cost of one eigen solve: full, quarter, eighth](docs/img/symmetry_costs.png)
+
+**Spending the savings: how converged is k = 1?** The eighth model makes meshes affordable that the full model cannot
+reach on this machine: 1.0 M unknowns in the eighth correspond to about 8 M in the full coil. Seven eighth-model solves
+(x = 0 PEC, y = 0 PMC, z = 0 PEC; C = 1.828 pF):
+
+| mesh (strip edge / gap / bulk, mm) | order | unknowns (eighth) | k = 1 (MHz) | peak memory | Palace time |
+|---|---|---|---|---|---|
+| 5 / 2.5 / 35 (production density) | 2 | 0.16 M | 127.675 | 2.1 GB | 41 s |
+| 3.5 / 1.75 / 25 | 2 | 0.37 M | 127.459 | 5.2 GB | 6.9 min, CPU shared |
+| 2.5 / 1.25 / 18 | 2 | 0.90 M | 127.291 | 14.4 GB | 8.3 min |
+| 2.5 / 1.25 / 35 | 2 | 0.42 M | 127.312 | 5.2 GB | 1.6 min |
+| 1.25 / 0.625 / 35 | 2 | 1.01 M | 127.109 | 12.7 GB | 4.8 min |
+| 5 / 2.5 / 35 | 3 | 0.45 M | 127.361 | 6.8 GB | 12.4 min, CPU shared |
+| 4.2 / 2.1 / 30 | 3 | 0.67 M | 127.307 | 10.9 GB | 6.1 min |
+
+Refining the bulk mesh (35 → 18 mm) moves k = 1 by only 0.02 MHz; refining the strip edges and gaps moves it by
+0.36 MHz and then 0.20 MHz. The strips are zero-thickness PEC sheets, so the field is singular at their edges and the
+error decays slowly, here as about h^0.84 (the asymptotic rate for such an edge is h^1). Richardson extrapolation of
+the edge series gives a converged k = 1 of **126.85 MHz** with the observed rate (126.91 MHz with rate 1). The finest
+run is 0.20 % above that, and the production mesh (127.73 MHz in the full model) is about **0.7 % high**: more than the
+0.4 % estimated from the earlier two-step mesh study, because that study refined the whole mesh rather than the strip
+edges. With the fitted 1/f² ∝ C + 1.21 pF, putting the converged k = 1 on 127.73 MHz would take roughly 1.79 pF
+instead of 1.83 pF (an estimate; the stray capacitance also moves with the mesh). The ROI homogeneity does not change
+with the mesh (4.01–4.08 % in all seven runs).
+
+![k = 1 frequency vs mesh: three refinement series in the eighth model](docs/img/symmetry_convergence.png)
+
+Clip: [`docs/img/birdcage_symmetry.mp4`](docs/img/birdcage_symmetry.mp4) (silent, 4:5, 34 s).
 
 ## Port tuning with circuitRF
 

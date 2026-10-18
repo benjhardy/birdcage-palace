@@ -23,6 +23,7 @@ import matplotlib  # noqa: E402
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.ticker  # noqa: E402,F401
 
 from birdcage_palace import plots  # noqa: E402
 from birdcage_palace.modes import load, quadrature  # noqa: E402
@@ -49,10 +50,13 @@ def cost(case: Path) -> dict:
     mem = re.findall(r"peak per-node memory usage is:.*Total ([\d.]+)([GM])", log)
     gb = (float(mem[-1][0]) / (1024 if mem[-1][1] == "M" else 1)) if mem else None
     tot = re.findall(r"^Total\s+([\d.]+)", log, re.M)
+    setup = re.findall(r"^\s+Setup\s+[\d.]+\s+([\d.]+)", log, re.M)
+    prec = re.findall(r"^\s+Preconditioner\s+[\d.]+\s+([\d.]+)", log, re.M)
     cfg = json.loads((case / "config.json").read_text())
     info = json.loads((case / "build.json").read_text())
     return {"unknowns": st["unknowns"], "tets": info["tets"], "palace_gb": gb, "palace_s": float(tot[-1]) if tot else None,
             "shared_machine": bool(st.get("shared_machine", False)),
+            "factor_s": (float(setup[-1]) + float(prec[-1])) if setup and prec else None,
             "wall_s": st["wall_s"], "ranks": st["ranks"], "order": cfg["Solver"]["Order"],
             "modes": cfg["Solver"]["Eigenmode"]["N"]}
 
@@ -251,7 +255,7 @@ def fig_costs(rows: list[tuple[str, dict]], out: Path, figsize=(11, 3.6), big: b
     return out
 
 
-def _panel(ax, pts, v, plane, des, title, quarter_lines=False, vmax=None):
+def _panel(ax, pts, v, plane, des, title, quarter_lines=False, vmax=None, fs=1.0):
     cut = (0, 1) if plane == "axial" else (0, 2)
     img, ext = plots._grid(pts[:, cut], v)
     ext = [e * 100 for e in ext]
@@ -266,11 +270,11 @@ def _panel(ax, pts, v, plane, des, title, quarter_lines=False, vmax=None):
         else:
             ax.plot([0, 0], [ext[2], ext[3]], color=PEC_C if bc["x"] == "pec" else PMC_C, lw=1.6)
     ax.set_aspect("equal")
-    ax.tick_params(labelsize=7)
+    ax.tick_params(labelsize=7 * fs)
     for s in ax.spines.values():
         s.set_visible(False)
     if title:
-        ax.set_title(title, fontsize=9.5)
+        ax.set_title(title, fontsize=9.5 * fs)
     return im
 
 
@@ -307,7 +311,8 @@ def fig_b1_compare(full: Path, q_em: Path, q_me: Path, out: Path, figsize=(13.0,
         roi = vv[sl_["roi"]]
         stats[["full_linear", "quarter_linear", "full_quad", "quarter_quad"][j]] = float(roi.std() / roi.mean())
         for i, plane in enumerate(("axial", "coronal")):
-            im = _panel(axs[i, j], pts_[sl_[plane]], vv[sl_[plane]], plane, des, title if i == 0 else None, ql, vmax=1.6)
+            im = _panel(axs[i, j], pts_[sl_[plane]], vv[sl_[plane]], plane, des, title if i == 0 else None, ql, vmax=1.6,
+                        fs=1.5 if linear_only else 1.0)
             axs[i, j].set_xlabel("x (cm)", fontsize=8)
             if j == 0:
                 axs[i, j].set_ylabel("y (cm)" if plane == "axial" else "z (cm)", fontsize=8)
@@ -405,6 +410,47 @@ def match_union(full: Path, qbase: str, fmax: float) -> dict:
     return {"matched": rows, "unmatched_quarter_modes_below_fmax": extra}
 
 
+def fig_convergence(conv: list[dict], out: Path, R: dict, figsize=(8.6, 5.0), fs=1.0) -> Path:
+    """k = 1 frequency vs unknowns (eighth model) for the three refinement series, with the extrapolated value."""
+    fig, ax = plt.subplots(figsize=figsize)
+    for ser, mk, col, lab in (("edges", "o", plots.BLUE, "order 2, strip edges and gaps refined"),
+                              ("uniform", "s", plots.INK2, "order 2, whole mesh refined"),
+                              ("order 3", "D", plots.ORANGE, "order 3")):
+        pts = sorted([(c["cost"]["unknowns"], c["k1_mhz"], c["h_mm"][0]) for c in conv
+                      if c["series"] == ser or (ser != "order 3" and c["order"] == 2 and abs(c["h_mm"][0] - 5) < 1e-6)])
+        if len(pts) > 1 or ser == "order 3":
+            x, y, h = zip(*pts)
+            ax.plot(np.array(x) / 1e6, y, "-" + mk, color=col, ms=7 * fs, lw=1.5, label=lab)
+            for xi, yi, hi in zip(x, y, h):
+                ax.annotate(f"{hi:g} mm", (xi / 1e6, yi), xytext=(5, 4), textcoords="offset points", fontsize=7.5 * fs,
+                            color=col)
+    cv = R.get("converged")
+    if cv:
+        ax.axhspan(min(cv["k1_mhz"], cv["k1_rate1_mhz"]), max(cv["k1_mhz"], cv["k1_rate1_mhz"]), color=plots.BLUE,
+                   alpha=0.15, lw=0)
+        ax.axhline(cv["k1_mhz"], color=plots.BLUE, ls=":", lw=1)
+        ax.text(0.98, cv["k1_mhz"], f"extrapolated {cv['k1_mhz']:.2f} MHz  ", transform=ax.get_yaxis_transform(),
+                ha="right", va="top", fontsize=8.5 * fs, color=plots.BLUE)
+    ax.axhline(R["full"]["k1_mean_mhz"], color=plots.MUTED, ls="--", lw=1)
+    ax.text(0.98, R["full"]["k1_mean_mhz"], f"full model, production mesh {R['full']['k1_mean_mhz']:.2f} MHz  ",
+            transform=ax.get_yaxis_transform(), ha="right", va="bottom", fontsize=8.5 * fs, color=plots.INK2)
+    ax.set_xscale("log")
+    from matplotlib.ticker import FixedLocator, NullFormatter, NullLocator
+    ax.xaxis.set_major_locator(FixedLocator([0.15, 0.2, 0.3, 0.5, 0.7, 1.0]))
+    ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
+    ax.xaxis.set_minor_locator(NullLocator())
+    ax.xaxis.set_minor_formatter(NullFormatter())
+    ax.set_xlim(0.13, 1.25)
+    ax.set_xlabel("unknowns in the eighth model (M); labels: strip-edge mesh size", fontsize=10 * fs)
+    ax.set_ylabel("k = 1 frequency at C = 1.828 pF (MHz)", fontsize=10 * fs)
+    ax.grid(color=plots.GRID, lw=0.6)
+    ax.legend(frameon=False, fontsize=8.5 * fs, loc="center left")
+    ax.tick_params(labelsize=8.5 * fs)
+    fig.savefig(out, bbox_inches="tight", dpi=170)
+    plt.close(fig)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--full", required=True)
@@ -451,18 +497,34 @@ def main():
                      "symmetry": d["symmetry"], "cost": cost(case), "k1_mhz": hp["f_mean_mhz"], "roi_bt_cv": hp["roi_bt_cv"][0]})
     out["convergence"] = conv
     out["quarter_prefix"] = qb
-    o2 = sorted([c for c in conv if c["order"] == 2], key=lambda c: -c["h_mm"][0])
-    if len(o2) >= 3:
-        # Richardson on three h-levels at order 2 with the observed rate (h ratios need not be equal: solve for p)
+    for c in conv:  # refinement series: strip edges and gaps only (bulk 35 mm), uniform, order 3
+        c["series"] = ("order 3" if c["order"] == 3 else
+                       "edges" if abs(c["h_mm"][2] - 35) < 1e-6 else "uniform")
+    edge = sorted([c for c in conv if c["order"] == 2 and abs(c["h_mm"][2] - 35) < 1e-6], key=lambda c: -c["h_mm"][0])
+    if len(edge) >= 3:
+        # Richardson on the strip-edge refinement (h_coil and h_gap halved, bulk fixed) with the observed rate
         from scipy.optimize import brentq
-        (h1, f1), (h2, f2), (h3, f3) = [(c["h_mm"][0], c["k1_mhz"]) for c in o2[-3:]]
-        g = lambda p: (f1 - f2) / (f2 - f3) - (h1 ** p - h2 ** p) / (h2 ** p - h3 ** p)
+        (h1, f1), (h2, f2), (h3, f3) = [(c["h_mm"][0], c["k1_mhz"]) for c in edge[-3:]]
+        g = lambda p: (f1 - f2) / (f2 - f3) - (h1 ** p - h2 ** p) / (h2 ** p - h3 ** p)  # noqa: E731
         try:
-            p_obs = brentq(g, 0.3, 8)
+            p_obs = brentq(g, 0.2, 8)
             finf = f3 - (f2 - f3) / ((h2 / h3) ** p_obs - 1)
         except ValueError:
             p_obs, finf = None, None
-        out["richardson"] = {"h_mm": [h1, h2, h3], "f_mhz": [f1, f2, f3], "observed_rate": p_obs, "f_extrapolated_mhz": finf}
+        f_p1 = f3 - (f2 - f3) / ((h2 / h3) - 1)  # the asymptotic rate for an edge singularity, error ~ h
+        out["richardson"] = {"series": "h_coil, h_gap refined; h_max 35 mm; order 2", "h_mm": [h1, h2, h3],
+                             "f_mhz": [f1, f2, f3], "observed_rate": p_obs, "f_extrapolated_mhz": finf,
+                             "f_extrapolated_rate1_mhz": f_p1}
+        if finf:
+            out["converged"] = {"k1_mhz": finf, "k1_rate1_mhz": f_p1,
+                                "label": f"extrapolated, h -> 0 (observed rate h^{p_obs:.2f})",
+                                "note": f"finest run {f3:.2f} MHz ({(f3 / finf - 1) * 100:+.2f} %), "
+                                        f"production mesh {(out['full']['k1_mean_mhz'] / finf - 1) * 100:+.2f} %",
+                                "finest_error_pct": (f3 / finf - 1) * 100,
+                                "production_error_pct": (out["full"]["k1_mean_mhz"] / finf - 1) * 100}
+        figs_conv = fig_convergence(conv, img / "symmetry_convergence.png", out)
+    else:
+        figs_conv = None
 
     figs = []
     figs.append(fig_quarter_render(Path(f"{qb}_em"), img / "symmetry_quarter_model.png", work))
@@ -475,6 +537,8 @@ def main():
     figs.append(p)
     p, _ = fig_spectrum_combos(full, qb, img / "symmetry_spectrum.png", fmax)
     figs.append(p)
+    if figs_conv:
+        figs.append(figs_conv)
     (ROOT / "results" / "lp16_symmetry.json").write_text(json.dumps(out, indent=1))
     for d in a.also:
         d = Path(d)

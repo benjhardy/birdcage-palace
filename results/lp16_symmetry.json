@@ -1,13 +1,14 @@
 {
  "full": {
-  "case": "runs\\lp16_final",
+  "case": "runs\\lp16_full_clean",
   "cost": {
    "unknowns": 1124818,
    "tets": 169135,
-   "palace_gb": 16.4,
-   "palace_s": 769.005,
+   "palace_gb": 16.6,
+   "palace_s": 683.063,
    "shared_machine": false,
-   "wall_s": 816.0,
+   "factor_s": 308.841,
+   "wall_s": 684.1,
    "ranks": 4,
    "order": 2,
    "modes": 20
@@ -18,43 +19,43 @@
   ],
   "k1_mean_mhz": 127.73351240045,
   "roi_bt_cv": [
-   0.04019010018350777,
-   0.04019164777711597
+   0.0401901001835033,
+   0.04019164777711334
   ],
-  "b1plus_roi_cv": 0.023450131726704366
+  "b1plus_roi_cv": 0.023450131726704775
  },
  "parity_check_full_model": {
   "B1 along y": {
    "x=0": {
-    "residual_if_pec": 0.006591636324831873,
-    "residual_if_pmc": 1.9999891375531422,
+    "residual_if_pec": 0.006591636324828406,
+    "residual_if_pmc": 1.999989137553142,
     "verdict": "PEC",
     "pairs": 938
    },
    "y=0": {
-    "residual_if_pec": 1.9999887924763295,
-    "residual_if_pmc": 0.006695518581680606,
+    "residual_if_pec": 1.9999887924763293,
+    "residual_if_pmc": 0.006695518581679574,
     "verdict": "PMC",
     "pairs": 938
    }
   },
   "B1 along x": {
    "x=0": {
-    "residual_if_pec": 1.99998914937125,
-    "residual_if_pmc": 0.006588049579655235,
+    "residual_if_pec": 1.9999891493712492,
+    "residual_if_pmc": 0.006588049579689241,
     "verdict": "PMC",
     "pairs": 938
    },
    "y=0": {
-    "residual_if_pec": 0.0064671794743532286,
+    "residual_if_pec": 0.0064671794743784376,
     "residual_if_pmc": 1.9999895438700792,
     "verdict": "PEC",
     "pairs": 938
    }
   },
   "B1y_member_rung_currents": {
-   "phase_deg_of_cos_fit": 179.99613557057506,
-   "fit_residual": 0.0002819029884241802
+   "phase_deg_of_cos_fit": 179.99613557057572,
+   "fit_residual": 0.0002819029885395892
   }
  },
  "combos": {
@@ -67,6 +68,7 @@
     "palace_gb": 3.7,
     "palace_s": 71.121,
     "shared_machine": false,
+    "factor_s": 25.645,
     "wall_s": 77.7,
     "ranks": 4,
     "order": 2,
@@ -126,6 +128,7 @@
     "palace_gb": 3.8,
     "palace_s": 102.608,
     "shared_machine": false,
+    "factor_s": 31.945,
     "wall_s": 110.6,
     "ranks": 4,
     "order": 2,
@@ -185,6 +188,7 @@
     "palace_gb": 3.8,
     "palace_s": 436.028,
     "shared_machine": true,
+    "factor_s": 138.799,
     "wall_s": 465.6,
     "ranks": 4,
     "order": 2,
@@ -244,6 +248,7 @@
     "palace_gb": 3.8,
     "palace_s": 195.53,
     "shared_machine": true,
+    "factor_s": 69.272,
     "wall_s": 210.2,
     "ranks": 4,
     "order": 2,
@@ -439,26 +444,27 @@
     "label": "k=0 (rungs in phase)",
     "combo": "mm",
     "quarter_f_mhz": 483.514,
-    "rel_diff": 0.00040528154504280165
+    "rel_diff": 0.0004052815448358404
    }
   ],
   "unmatched_quarter_modes_below_fmax": []
  },
  "eighth": {
-  "case": "runs/sym_e_m2o2",
+  "case": "runs/sym_e_m2o2_clean",
   "cost": {
    "unknowns": 155824,
    "tets": 22834,
    "palace_gb": 2.1,
-   "palace_s": 239.001,
-   "shared_machine": true,
-   "wall_s": 261.9,
+   "palace_s": 40.624,
+   "shared_machine": false,
+   "factor_s": 14.129999999999999,
+   "wall_s": 42.1,
    "ranks": 4,
    "order": 2,
    "modes": 10
   },
   "k1_mhz": 127.67522423780001,
-  "roi_bt_cv": 0.040831665817237454,
+  "roi_bt_cv": 0.04083166581723574,
   "modes": [
    {
     "f_mhz": 127.675,
@@ -510,6 +516,7 @@
    "palace_gb": 3.9,
    "palace_s": 297.88,
    "shared_machine": true,
+   "factor_s": 94.67699999999999,
    "wall_s": 323.0,
    "ranks": 4,
    "order": 2,
@@ -568,6 +575,7 @@
    "palace_gb": 3.9,
    "palace_s": 234.401,
    "shared_machine": true,
+   "factor_s": 74.702,
    "wall_s": 257.0,
    "ranks": 4,
    "order": 2,
@@ -620,7 +628,7 @@
  },
  "convergence": [
   {
-   "case": "runs\\sym_e_m2o2",
+   "case": "runs\\sym_e_m2o2_clean",
    "h_mm": [
     5.0,
     2.5,
@@ -632,15 +640,17 @@
     "unknowns": 155824,
     "tets": 22834,
     "palace_gb": 2.1,
-    "palace_s": 239.001,
-    "shared_machine": true,
-    "wall_s": 261.9,
+    "palace_s": 40.624,
+    "shared_machine": false,
+    "factor_s": 14.129999999999999,
+    "wall_s": 42.1,
     "ranks": 4,
     "order": 2,
     "modes": 10
    },
    "k1_mhz": 127.67522423780001,
-   "roi_bt_cv": 0.040831665817237454
+   "roi_bt_cv": 0.04083166581723574,
+   "series": "edges"
   },
   {
    "case": "runs\\sym_e_m3o2",
@@ -657,13 +667,90 @@
     "palace_gb": 5.2,
     "palace_s": 413.639,
     "shared_machine": true,
+    "factor_s": 166.947,
     "wall_s": 450.9,
     "ranks": 4,
     "order": 2,
     "modes": 10
    },
    "k1_mhz": 127.4586524772,
-   "roi_bt_cv": 0.040405440389600485
+   "roi_bt_cv": 0.040405440389600485,
+   "series": "uniform"
+  },
+  {
+   "case": "runs\\sym_e_m4o2",
+   "h_mm": [
+    2.5,
+    1.25,
+    18.0
+   ],
+   "order": 2,
+   "symmetry": "eighth",
+   "cost": {
+    "unknowns": 898480,
+    "tets": 136018,
+    "palace_gb": 14.4,
+    "palace_s": 495.492,
+    "shared_machine": false,
+    "factor_s": 331.778,
+    "wall_s": 497.0,
+    "ranks": 4,
+    "order": 2,
+    "modes": 10
+   },
+   "k1_mhz": 127.291374781,
+   "roi_bt_cv": 0.04014314830458525,
+   "series": "uniform"
+  },
+  {
+   "case": "runs\\sym_e_edge_e25",
+   "h_mm": [
+    2.5,
+    1.25,
+    35.0
+   ],
+   "order": 2,
+   "symmetry": "eighth",
+   "cost": {
+    "unknowns": 417894,
+    "tets": 62171,
+    "palace_gb": 5.2,
+    "palace_s": 93.002,
+    "shared_machine": false,
+    "factor_s": 45.487,
+    "wall_s": 94.0,
+    "ranks": 4,
+    "order": 2,
+    "modes": 6
+   },
+   "k1_mhz": 127.31174406289999,
+   "roi_bt_cv": 0.040373130016020616,
+   "series": "edges"
+  },
+  {
+   "case": "runs\\sym_e_edge_e125",
+   "h_mm": [
+    1.25,
+    0.625,
+    35.0
+   ],
+   "order": 2,
+   "symmetry": "eighth",
+   "cost": {
+    "unknowns": 1010852,
+    "tets": 151331,
+    "palace_gb": 12.7,
+    "palace_s": 286.496,
+    "shared_machine": false,
+    "factor_s": 160.358,
+    "wall_s": 287.7,
+    "ranks": 4,
+    "order": 2,
+    "modes": 6
+   },
+   "k1_mhz": 127.10851172820001,
+   "roi_bt_cv": 0.040123987778569785,
+   "series": "edges"
   },
   {
    "case": "runs\\sym_e_m2o3",
@@ -680,20 +767,71 @@
     "palace_gb": 6.8,
     "palace_s": 745.859,
     "shared_machine": true,
+    "factor_s": 255.38400000000001,
     "wall_s": 807.7,
     "ranks": 4,
     "order": 3,
     "modes": 10
    },
    "k1_mhz": 127.3606719743,
-   "roi_bt_cv": 0.04026219966395105
+   "roi_bt_cv": 0.04026219966395105,
+   "series": "order 3"
+  },
+  {
+   "case": "runs\\sym_e_m25o3",
+   "h_mm": [
+    4.2,
+    2.1,
+    30.0
+   ],
+   "order": 3,
+   "symmetry": "eighth",
+   "cost": {
+    "unknowns": 674133,
+    "tets": 34713,
+    "palace_gb": 10.9,
+    "palace_s": 366.891,
+    "shared_machine": false,
+    "factor_s": 185.665,
+    "wall_s": 368.1,
+    "ranks": 4,
+    "order": 3,
+    "modes": 10
+   },
+   "k1_mhz": 127.3067340744,
+   "roi_bt_cv": 0.04026572655392205,
+   "series": "order 3"
   }
  ],
  "quarter_prefix": "runs/sym_q",
+ "richardson": {
+  "series": "h_coil, h_gap refined; h_max 35 mm; order 2",
+  "h_mm": [
+   5.0,
+   2.5,
+   1.25
+  ],
+  "f_mhz": [
+   127.67522423780001,
+   127.31174406289999,
+   127.10851172820001
+  ],
+  "observed_rate": 0.8387467219212098,
+  "f_extrapolated_mhz": 126.85076484177682,
+  "f_extrapolated_rate1_mhz": 126.90527939350004
+ },
+ "converged": {
+  "k1_mhz": 126.85076484177682,
+  "k1_rate1_mhz": 126.90527939350004,
+  "label": "extrapolated, h -> 0 (observed rate h^0.84)",
+  "note": "finest run 127.11 MHz (+0.20 %), production mesh +0.70 %",
+  "finest_error_pct": 0.20318906767702316,
+  "production_error_pct": 0.6958945496105207
+ },
  "b1_maps_roi_cv_centre_normalised": {
-  "full_linear": 0.04033988704841189,
+  "full_linear": 0.04033988704841209,
   "quarter_linear": 0.040387942774109835,
-  "full_quad": 0.02345013172670437,
+  "full_quad": 0.023450131726704772,
   "quarter_quad": 0.023205819908117514
  }
 }

@@ -44,9 +44,9 @@ job + this one < 20 GB) and most timings are on a shared CPU. The order-2 h-seri
 
 | case | mesh (h_coil / h_gap / h_max, mm) | order | tets | unknowns (est.) | estimate | actual |
 |---|---|---|---|---|---|---|
-| sym_e_m25o3 | 4.2 / 2.1 / 30 | 3 | 35 k | 0.68 M | 15-25 min, 10 GB | |
-| sym_e_edge_e25 | 2.5 / 1.25 / 35 | 2 | 62 k | 0.42 M | 5-10 min, 6 GB | |
-| sym_e_edge_e125 | 1.25 / 0.625 / 35 | 2 | 151 k | 1.0 M | 10-20 min, 16 GB | |
+| sym_e_m25o3 | 4.2 / 2.1 / 30 | 3 | 35 k | 0.68 M | 15-25 min, 10 GB | 6.1 min (free machine), 10.9 GB, 0.67 M, 127.307 MHz |
+| sym_e_edge_e25 | 2.5 / 1.25 / 35 | 2 | 62 k | 0.42 M | 5-10 min, 6 GB | 1.6 min (free), 5.2 GB, 0.42 M, 127.312 MHz |
+| sym_e_edge_e125 | 1.25 / 0.625 / 35 | 2 | 151 k | 1.0 M | 10-20 min, 16 GB | 4.8 min (free), 12.7 GB, 1.01 M, 127.109 MHz |
 
 ## Port tuning with circuitRF (phase 2)
 
@@ -67,10 +67,15 @@ point even on the coarse mesh), so the output grid is 2 MHz (the bare-coil S is 
 
 | case | model | unknowns | estimate | actual | purpose |
 |---|---|---|---|---|---|
-| pt_e_{em,me,mm,ee} | eighth, production density, order 2, unloaded, 4 ports each | 0.16 M (complex) | 10-20 min each, 3-4 GB | | 16-port of the bare coil |
-| ptl_e_{em,me,mm,ee} | same with the saline phantom | 0.16 M | 10-25 min each, 3-4 GB | | 16-port, loaded |
-| verification | eighth eigen with the tuned C (unloaded), loaded eigen 2 modes | 0.16 M | 3-10 min | | the tuned C put k=1 on 127.73 MHz |
+| pt_e_{em,me,mm,ee} | eighth, production density, order 2, unloaded, 4 ports each | 0.16 M (complex) | 10-20 min each, 3-4 GB | 7.6-9.1 min each (shared CPU), 2.0-2.1 GB, 4-5 samples per excitation | 16-port of the bare coil |
+| ptl_e_{em,me,mm,ee} | same with the saline phantom | 0.16 M | 10-25 min each, 3-4 GB | 18-24 min each (shared CPU), 2.3-2.5 GB | 16-port, loaded |
+| verification | eighth eigen em/me at 1.828 pF; z-half eigen (all 16 rungs) with the tuned C and with uniform C | 0.16 M / 0.58 M | 3-10 min | 5.4 min; 2.3-4.8 min, 7.2 GB | S-matrix predictions vs Palace |
 
 circuitRF (1.0.9, headless in WSL): SnP 16-port, every gap closed by its capacitor with ESR 0.68 ohm (capacitor Q about
-1000 at 128 MHz), drive gaps 0 and 4 (90 degrees apart) fed through a series match capacitor from 50 ohm ports; goals
+1000 at 128 MHz), drive gaps 0 and 4 (90 degrees apart) fed from 50 ohm ports (first a series match capacitor, final version a capacitive divider); goals
 |S11|, |S22| <= -20 dB and |S21| <= -20 dB at 127.73 MHz (+-2 kHz unloaded, +-100 kHz loaded).
+
+Re-timed on a free machine at the end (4 ranks): full model 11.4 min, 16.6 GB (factorisation 309 s); quarter 71 s with
+10 modes, 130 s with 20 modes; eighth 41 s. Port-tuning actuals: the four unloaded eighth sweeps took 454-548 s of Palace
+time each (2.0-2.1 GB), the four loaded ones 1083-1417 s (2.3-2.5 GB), all on a shared CPU; the two z-half verification
+eigen solves 0.58 M unknowns, 7.2 GB, 2.3-4.8 min.
