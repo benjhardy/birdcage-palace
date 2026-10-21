@@ -181,6 +181,7 @@ footer.foot a { color: var(--muted); }
         <p class="note">The ladder network is quasi-static. It leaves out the stray capacitance of the strips and the shield end caps, so its capacitor is a first guess. These are our Palace eigenmode results for the reference coil: 16 rungs, 28 cm diameter, 25 cm long, 34 cm closed shield, 3 T (127.7 MHz), no load. Simulation only.</p>
         <div class="tblwrap"><table class="ref" id="accTbl"></table></div>
         <p class="note" id="accNote"></p>
+        <p class="note">Package test, 21 Oct 2026: a 12-rung high-pass coil, 24 cm diameter, 3 T, coarse mesh, order 1 (84 k unknowns), built from this page's package in a fresh venv. Ladder 24.29 pF per ring gap &rarr; Palace k = 1 at 134.18 MHz (+5.1 %). One tune step: 26.80 pF &rarr; 128.15 MHz (+0.33 %, inside the 0.5 % tolerance). Two Palace solves of 40 s each on 4 ranks; quadrature B1+ ROI std/mean 2.3 %.</p>
         <p class="note">This is why the package does not stop at the ladder value. It solves the coil in Palace at the first guess, then <span class="mono">birdcage tune</span> takes secant steps on 1/f² (linear in C) on the same mesh until k = 1 is within the tolerance of f0. Numbers from <a href="https://github.com/benjhardy/birdcage-palace/tree/main/results">results/lp16_3T.json, hp16_3T.json, bp16_3T.json</a>.</p>
       </div>
     </div>
@@ -661,7 +662,7 @@ exit $LASTEXITCODE
     const alt = [];
     if (s.mesh !== 'coarse') alt.push('the coarse mesh');
     if (s.type === 'lowpass' && s.legs % 4 === 0 && s.symmetry === 'none') alt.push('the quarter model');
-    if (!alt.length) alt.push('fewer modes or order 1');
+    if (!alt.length) alt.push(s.order > 1 ? 'order 1 or fewer modes' : 'fewer modes');
     return alt.join(' or ');
   }
   function readme(s, lad, est, when) {
@@ -914,12 +915,12 @@ function renderSpectrum() {
 
 // ---------- accuracy table (Palace results, birdcage-palace results/*.json) ----------
 const MEAS = [
-  { t: 'Low-pass', c: 'rung', guess: 2.807, fGuess: '111.08', mesh: 'production', tuned: 1.828, fTuned: '127.73', b1: '2.3 %' },
-  { t: 'High-pass', c: 'ring', guess: 36.88, fGuess: '135.20', mesh: 'coarse', tuned: 37.80, fTuned: '127.73', b1: '2.8 %' },
-  { t: 'Band-pass, ratio 1', c: 'both', guess: 39.68, fGuess: '136.12', mesh: 'coarse', tuned: 41.23, fTuned: '127.66', b1: '2.8 %' }];
+  { t: 'Low-pass', c: 'rungs', guess: 2.807, fGuess: '111.08', mesh: 'production', tuned: 1.828, fTuned: '127.73', b1: '2.3 %' },
+  { t: 'High-pass', c: 'rings', guess: 36.88, fGuess: '135.20', mesh: 'coarse', tuned: 37.80, fTuned: '127.73', b1: '2.8 %' },
+  { t: 'Band-pass 1:1', c: 'both', guess: 39.68, fGuess: '136.12', mesh: 'coarse', tuned: 41.23, fTuned: '127.66', b1: '2.8 %' }];
 function renderAccuracy() {
-  let h = '<thead><tr><th>type (C in)</th><th>ladder C</th><th>Palace k=1</th><th>tuned C</th><th>ratio</th><th>k=1 tuned</th><th>B1+ std/mean</th></tr></thead><tbody>';
-  for (const m of MEAS) h += `<tr><td>${m.t} (${m.c})</td><td>${m.guess.toFixed(m.guess < 10 ? 2 : 2)} pF</td><td>${m.fGuess} MHz${m.mesh === 'coarse' ? '*' : ''}</td><td>${m.tuned.toFixed(2)} pF</td><td>${(m.tuned / m.guess).toFixed(3)}</td><td>${m.fTuned} MHz</td><td>${m.b1}</td></tr>`;
+  let h = '<thead><tr><th>type</th><th>ladder C</th><th>Palace k=1</th><th>tuned C</th><th>ratio</th><th>k=1 tuned</th><th>B1+ std/mean</th></tr></thead><tbody>';
+  for (const m of MEAS) h += `<tr><td>${m.t}</td><td>${m.guess.toFixed(2)} pF</td><td>${m.fGuess} MHz${m.mesh === 'coarse' ? '*' : ''}</td><td>${m.tuned.toFixed(2)} pF</td><td>${(m.tuned / m.guess).toFixed(3)}</td><td>${m.fTuned} MHz</td><td>${m.b1}</td></tr>`;
   $('#accTbl').innerHTML = h + '</tbody>';
   $('#accNote').textContent = 'Ratio = tuned C / ladder C. Tuned values on the production mesh (5/2.5/35 mm, order 2, 1.12–1.24 M unknowns). * Palace at the high-pass and band-pass first guess was solved on the coarse mesh only (8/4/40 mm, order 1), which reads about 4.5 % high for these two types. Low-pass is off by most: at 2–3 pF per rung the stray capacitance of the strips (fit: 1.21 pF) is two-thirds of the lumped value.';
 }
