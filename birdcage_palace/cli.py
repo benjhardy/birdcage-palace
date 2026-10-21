@@ -5,6 +5,14 @@
     birdcage modes --case runs/lp16            # modes.json + figures
     birdcage tune  --case runs/lp16 --tol 0.005  # rescale C by (f_sim/f_target)^2 and re-solve until k=1 is on target
 
+A JSON spec (for example the spec.json from the web builder, https://benjhardy.github.io/birdcage-builder/) can
+replace the build flags; flags given on the command line override it:
+
+    birdcage build --spec spec.json --out runs/my_coil
+
+Palace is called as `run_palace {cfg} {np}` by default. Use --palace-cmd or the BIRDCAGE_PALACE_CMD environment
+variable for another launcher, e.g. "palace -np {np} {cfg}" or "apptainer run palace.sif -np {np} {cfg}".
+
 Symmetry (low-pass): build a quarter model with PEC on x=0 and PMC on y=0 (keeps the k=1 member with B1 along y),
 then reuse its mesh for another PEC/PMC combination:
 
@@ -114,14 +122,17 @@ def _pf(c):
     return "-" if c is None else f"{c * 1e12:.3f} pF"
 
 
+DEFAULT_PALACE_CMD = "run_palace {cfg} {np}"
+
+
 def cmd_solve(a) -> dict:
     from .palace import palace_busy, run
     np_ = a.np
-    busy = palace_busy()
+    busy = palace_busy(a.wsl_distro)
     if busy and np_ > a.np_shared:
         print(f"another Palace job is running ({len(busy)} processes): using {a.np_shared} ranks")
         np_ = a.np_shared
-    st = run(Path(a.case), np_)
+    st = run(Path(a.case), np_, palace_cmd=a.palace_cmd, distro=a.wsl_distro)
     print("solve:", st)
     return st
 
@@ -165,7 +176,8 @@ def cmd_tune(a) -> None:
         err = f / des.f_larmor - 1
         hist.append({"iter": it, "c_leg": des.c_leg, "c_ring": des.c_ring, "f_k1_mhz": f / 1e6, "rel_err": err,
                      "solve": json.loads((case / "solve_stats.json").read_text())})
-        print(f"tune iter {it}: k=1 at {f / 1e6:.3f} MHz ({err * 100:+.2f} %), C_leg={_pf(des.c_leg)} C_ring={_pf(des.c_ring)}")
+        print(f"tune iter {it}: k=1 at {f / 1e6:.3f} MHz ({err * 100:+.2f} %), C_leg={_pf(des.c_leg)} C_ring={_pf(des.c_ring)}",
+              flush=True)
         (case / "tune_history.json").write_text(json.dumps(hist, indent=1))
         if abs(err) < a.tol:
             break
@@ -184,13 +196,76 @@ def cmd_tune(a) -> None:
         (case / "analytic.json").write_text(json.dumps(an, indent=1))
         write_config(des, case, n_modes=json.loads((case / "config.json").read_text())["Solver"]["Eigenmode"]["N"])
     a.no_figs = False
-    cmd_modes(a)
+    res = cmd_modes(a)
+    summ = tune_summary(CoilDesign.from_json(case / "design.json"), res, hist)
+    (case / "tune_summary.json").write_text(json.dumps(summ, indent=1))
+    print("tune summary:", json.dumps(summ), flush=True)
+
+
+def tune_summary(des: CoilDesign, res: dict, hist: list) -> dict:
+    """Short record of a tune run: k=1 frequency, capacitors, B1 homogeneity, number of solves."""
+    hp = res.get("homogeneous_pair") or {}
+    f = hp.get("f_mean_mhz")
+    first = (des.notes or {})
+    return {"f_target_mhz": des.f_larmor / 1e6, "f_k1_mhz": f,
+            "rel_err": None if f is None else f / (des.f_larmor / 1e6) - 1,
+            "k1_split_mhz": hp.get("split_mhz"), "c_leg_pf": None if des.c_leg is None else des.c_leg * 1e12,
+            "c_ring_pf": None if des.c_ring is None else des.c_ring * 1e12,
+            "c_leg_first_guess_pf": None if first.get("c_leg_first_guess") is None else first["c_leg_first_guess"] * 1e12,
+            "c_ring_first_guess_pf": None if first.get("c_ring_first_guess") is None else first["c_ring_first_guess"] * 1e12,
+            "f_k1_at_first_guess_mhz": hist[0]["f_k1_mhz"] if hist else None,
+            "roi_bt_cv": hp.get("roi_bt_cv"), "b1plus_roi_cv": hp.get("b1plus_roi_cv"),
+            "b1minus_over_b1plus_roi": hp.get("b1minus_over_b1plus_roi"), "solves": len(hist),
+            "palace_wall_s": [h["solve"].get("wall_s") for h in hist]}
+
+
+def load_spec(path) -> dict:
+    """Build options from a JSON spec: either flat, or the web builder's {"build": {...}} form. Keys are CLI option
+    names with - or _ (leg-width or leg_width)."""
+    d = json.loads(Path(path).read_text())
+    if isinstance(d.get("build"), dict):
+        d = d["build"]
+    return {k.replace("-", "_"): v for k, v in d.items()}
+
+
+def parse_args(argv=None) -> argparse.Namespace:
+    ap = _parser()
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "build":
+        pre = argparse.ArgumentParser(add_help=False)
+        pre.add_argument("--spec")
+        known, _ = pre.parse_known_args(argv[1:])
+        if known.spec:
+            spec = load_spec(known.spec)
+            b = ap._build_parser
+            dests = {act.dest for act in b._actions} - {"help", "spec", "fn"}
+            bad = sorted(set(spec) - dests)
+            if bad:
+                ap.error(f"unknown key(s) in {known.spec}: {', '.join(bad)}")
+            for act in b._actions:  # set_defaults skips choices= checks, so check them here
+                if act.choices and act.dest in spec and spec[act.dest] not in act.choices:
+                    ap.error(f"{known.spec}: {act.dest} must be one of {', '.join(map(str, act.choices))}")
+            b.set_defaults(**spec)
+    a = ap.parse_args(argv)
+    if a.cmd == "build" and not a.out:
+        ap.error("build needs --out (or \"out\" in the spec)")
+    return a
 
 
 def main(argv=None) -> None:
+    a = parse_args(argv)
+    a.fn(a)
+
+
+def _parser() -> argparse.ArgumentParser:
+    import os
+    from . import __version__
     ap = argparse.ArgumentParser(prog="birdcage", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("-V", "--version", action="version", version=f"birdcage-palace {__version__}")
     sub = ap.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("build", help="analytic first guess + Gmsh mesh + Palace config")
+    ap._build_parser = b
+    b.add_argument("--spec", default=None, help="JSON file with build options (keys = option names); flags override it")
     b.add_argument("--legs", type=int, default=16)
     b.add_argument("--diameter", type=float, default=0.28)
     b.add_argument("--length", type=float, default=0.25, help="rung length between end-ring centrelines, m")
@@ -222,7 +297,7 @@ def main(argv=None) -> None:
     b.add_argument("--sym-bc", default="x=pec,y=pmc,z=pec",
                    help="PEC or PMC on each plane, e.g. x=pec,y=pmc (z=0 must be PEC)")
     b.add_argument("--rung-offset", type=float, default=None, help="angle of rung 0, rad (default 0, or pi/N with --sym-cut between)")
-    b.add_argument("--out", required=True)
+    b.add_argument("--out", default=None, help="case directory (required, here or in the spec)")
     b.set_defaults(fn=cmd_build)
     v = sub.add_parser("variant", help="copy a built case (same mesh) with other plane conditions / C / order / modes")
     v.add_argument("--case", required=True)
@@ -257,9 +332,13 @@ def main(argv=None) -> None:
         s.add_argument("--resolve-first", action="store_true")
         s.add_argument("--slope", type=float, default=None,
                        help="d(1/f_MHz^2)/dC (1/(MHz^2 F)) from an earlier pair of solves, seeds the first retune step")
+        s.add_argument("--palace-cmd", default=os.environ.get("BIRDCAGE_PALACE_CMD", DEFAULT_PALACE_CMD),
+                       help="Palace launcher with {cfg} and {np} placeholders (env BIRDCAGE_PALACE_CMD); "
+                            f"default \"{DEFAULT_PALACE_CMD}\"")
+        s.add_argument("--wsl-distro", default=os.environ.get("BIRDCAGE_WSL_DISTRO", "Ubuntu-24.04"),
+                       help="WSL distribution that runs Palace when called from Windows")
         s.set_defaults(fn=fn)
-    a = ap.parse_args(argv)
-    a.fn(a)
+    return ap
 
 
 if __name__ == "__main__":

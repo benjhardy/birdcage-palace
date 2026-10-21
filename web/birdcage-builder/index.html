@@ -1,0 +1,1150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Public+Sans:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root {
+  --bg: #F1F4F7; --surface: #FFFFFF; --ink: #142230; --muted: #586678; --line: #D5DCE5; --grid: #E4E9EF;
+  --field: #D9472B; --hfield: #2B6CB0; --ok: #2A7F50; --bad: #C0392B; --warn: #B85A0B; --accent: #2160A8;
+  --metal: #B87333; --metal-hi: #D9A066; --diel: #E2EBF4; --diel-edge: #B9CADC;
+  --caprung: #2A7F50; --capring: #7B4FB0;
+  --display: "Bricolage Grotesque", "Arial Narrow", system-ui, sans-serif;
+  --body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D131A; --surface: #141C26; --ink: #E3E9EF; --muted: #98A4B2; --line: #2A3644; --grid: #1F2B39;
+    --field: #FF8A5C; --hfield: #6FB0F0; --ok: #6BCB93; --bad: #FF8A80; --warn: #F0A050; --accent: #6FA8EA;
+    --metal: #C98A52; --metal-hi: #E8B27C; --diel: #1A2735; --diel-edge: #34485E;
+    --caprung: #6BCB93; --capring: #B79CF0;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D131A; --surface: #141C26; --ink: #E3E9EF; --muted: #98A4B2; --line: #2A3644; --grid: #1F2B39;
+  --field: #FF8A5C; --hfield: #6FB0F0; --ok: #6BCB93; --bad: #FF8A80; --warn: #F0A050; --accent: #6FA8EA;
+  --metal: #C98A52; --metal-hi: #E8B27C; --diel: #1A2735; --diel-edge: #34485E;
+  --caprung: #6BCB93; --capring: #B79CF0;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.55 var(--body); margin: 0; overflow-x: hidden; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.08; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(2rem, 4.6vw, 3rem); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: clamp(1.3rem, 2.6vw, 1.6rem); font-weight: 800; letter-spacing: -0.01em; }
+h3 { font-size: 1.05rem; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+button { font-family: var(--body); }
+[hidden] { display: none !important; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.eyebrow { font: 600 0.72rem/1.2 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 1.05rem; color: var(--muted); max-width: 70ch; }
+.note { font-size: 0.86rem; color: var(--muted); }
+.topbar { max-width: 1240px; margin: 0 auto; padding: 14px 20px 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.topbar a.home { font: 600 0.78rem/1 var(--mono); letter-spacing: 0.06em; color: var(--muted); text-decoration: none; padding: 8px 0; }
+.topbar a.home:hover { color: var(--ink); }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 12px 20px 56px; display: grid; gap: 24px; }
+.hero { display: grid; gap: 8px; }
+.calc { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 980px) { .calc { grid-template-columns: 1fr; } }
+.col { display: grid; gap: 18px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+.pad { padding: 16px 18px; display: grid; gap: 12px; align-content: start; }
+.vbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.vbar h3 { margin-right: auto; }
+.stage { position: relative; width: 100%; touch-action: none; cursor: grab; }
+.stage:active { cursor: grabbing; }
+.stage canvas { display: block; width: 100%; }
+#cv3 { aspect-ratio: 16 / 11; }
+@media (max-width: 640px) { #cv3 { aspect-ratio: 1 / 1; } }
+.stage .tag { position: absolute; left: 12px; top: 10px; font: 600 0.72rem/1.3 var(--mono); color: var(--muted); pointer-events: none; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 10px 12px; border-top: 1px solid var(--line); font: 500 0.78rem/1.3 var(--mono); color: var(--muted); align-items: center; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; margin-right: 5px; }
+.legend i.ln { width: 16px; height: 0; border-top: 2px dashed currentColor; border-radius: 0; vertical-align: middle; }
+.seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { font: 600 0.8rem/1 var(--body); padding: 9px 11px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.seg button:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn { font: 600 0.84rem/1 var(--body); padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); font-size: 1rem; padding: 14px 18px; }
+.btn.primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chips button { font: 500 0.8rem/1 var(--body); padding: 8px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.chips button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.grp { display: grid; gap: 10px; }
+.grp + .grp { border-top: 1px solid var(--line); padding-top: 12px; }
+.lbl { font: 600 0.68rem/1.2 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.field { display: grid; gap: 4px; min-width: 0; align-content: start; }
+.field > label, .field > .lbl { font: 600 0.68rem/1.2 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.field label .u { text-transform: none; letter-spacing: 0; }
+.field .err { font: 500 0.74rem/1.3 var(--body); color: var(--bad); }
+.slide { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 8px; align-items: center; }
+input[type=range] { width: 100%; accent-color: var(--ink); margin: 0; min-width: 0; height: 28px; }
+input[type=number], input[type=text], select { font: 400 0.92rem/1.2 var(--mono); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 8px; width: 100%; min-width: 0; }
+input.bad { border-color: var(--bad); }
+input[type=checkbox] { accent-color: var(--ink); width: 16px; height: 16px; margin: 0; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 0.9rem; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 420px) { .three { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px; }
+.readout div { background: var(--bg); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+.readout span { display: block; font: 600 0.62rem/1.25 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.readout b { display: block; font: 600 1rem/1.3 var(--mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.readout small { font: 500 0.72rem/1.3 var(--mono); color: var(--muted); }
+#spec { display: block; width: 100%; aspect-ratio: 16 / 7; }
+@media (max-width: 640px) { #spec { aspect-ratio: 4 / 3; } }
+.msgs { display: grid; gap: 6px; }
+.msg { font-size: 0.86rem; border-radius: 8px; padding: 8px 10px; border: 1px solid var(--line); background: var(--bg); }
+.msg.e { border-color: var(--bad); color: var(--bad); }
+.msg.w { border-color: var(--warn); }
+.msg.w b { color: var(--warn); }
+table.ref { border-collapse: collapse; width: 100%; font: 500 0.8rem/1.35 var(--mono); font-variant-numeric: tabular-nums; }
+table.ref th, table.ref td { text-align: right; padding: 5px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.ref th:first-child, table.ref td:first-child { text-align: left; }
+table.ref thead th { font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+table.ref tr.hl td { color: var(--field); font-weight: 600; }
+.tblwrap { overflow-x: auto; max-width: 100%; }
+details summary { cursor: pointer; font: 600 0.8rem/1.4 var(--mono); color: var(--muted); }
+pre.cmd { font: 500 0.78rem/1.55 var(--mono); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 0; overflow-x: auto; white-space: pre; max-width: 100%; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 18px; align-items: start; }
+.refs { margin: 0; padding-left: 18px; font-size: 0.86rem; color: var(--muted); display: grid; gap: 6px; }
+.links { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.92rem; }
+footer.foot { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.84rem; color: var(--muted); }
+footer.foot a { color: var(--muted); }
+.status { font: 500 0.82rem/1.4 var(--mono); color: var(--muted); }
+.status.ok { color: var(--ok); }
+@media (max-width: 600px) {
+  .topbar { padding-inline: 16px; }
+  .wrap { padding-inline: 16px; gap: 20px; }
+  .pad { padding: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<title>Birdcage Builder</title>
+<meta name="description" content="Set the specs of an MRI birdcage coil (low-pass, high-pass or band-pass, rungs, size, shield, field strength). The ladder model gives the mode spectrum and a first-guess capacitor in the browser, and the last step writes a ready-to-run package that builds, solves and tunes the coil in the Palace FEM solver.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Birdcage Builder">
+<meta property="og:description" content="Set the specs of an MRI birdcage coil, see the 3D cage and the ladder-model mode spectrum, and download a package that builds, solves and tunes it in the Palace FEM solver.">
+<meta property="og:image" content="https://benjhardy.github.io/2026/birdcage-builder/birdcage-builder.png">
+<meta property="og:url" content="https://benjhardy.github.io/birdcage-builder/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<div class="topbar"><a class="home" href="/agent-rf/">&larr; agent.rf lab</a><button class="btn" id="themeBtn" type="button">Dark</button></div>
+<main class="wrap">
+  <header class="hero">
+    <p class="eyebrow">MRI RF coil &middot; birdcage-palace</p>
+    <h1>Birdcage builder</h1>
+    <p class="lede">Set the coil specs. Your browser computes the ladder-network model: every mode frequency and the capacitor that puts the k = 1 mode on the Larmor frequency. The last step writes a package that builds the coil in Gmsh, solves it in the Palace FEM solver and tunes the capacitors on your own machine.</p>
+  </header>
+
+  <section class="calc" aria-label="Builder">
+    <div class="col">
+      <div class="card">
+        <div class="vbar">
+          <h3>Geometry</h3>
+          <div class="seg" id="curSeg" role="group" aria-label="Current overlay">
+            <button type="button" data-v="off">No currents</button><button type="button" data-v="quad">k = 1 quadrature</button><button type="button" data-v="lin">k = 1 linear</button>
+          </div>
+          <button class="btn" id="playBtn" type="button">Pause</button>
+          <button class="btn" id="resetView" type="button">Reset view</button>
+        </div>
+        <div class="stage" id="stage3"><canvas id="cv3" role="img" aria-label="3D view of the birdcage coil, its capacitors and the RF shield. Drag to rotate."></canvas><span class="tag">Drag to rotate</span></div>
+        <div class="legend" id="leg3"></div>
+      </div>
+
+      <div class="card">
+        <div class="vbar"><h3>Ladder-model spectrum</h3><span class="status" id="specNote"></span></div>
+        <canvas id="spec" role="img" aria-label="Mode frequencies from the ladder model with the Larmor frequency marked"></canvas>
+        <div class="pad">
+          <div class="readout" id="readout"></div>
+          <details><summary>All modes (table)</summary><div class="tblwrap"><table class="ref" id="modeTbl"></table></div></details>
+        </div>
+      </div>
+
+      <div class="card pad" id="accuracy">
+        <h3>How good is the ladder model?</h3>
+        <p class="note">The ladder network is quasi-static. It leaves out the stray capacitance of the strips and the shield end caps, so its capacitor is a first guess. These are our Palace eigenmode results for the reference coil: 16 rungs, 28 cm diameter, 25 cm long, 34 cm closed shield, 3 T (127.7 MHz), no load. Simulation only.</p>
+        <div class="tblwrap"><table class="ref" id="accTbl"></table></div>
+        <p class="note" id="accNote"></p>
+        <p class="note">This is why the package does not stop at the ladder value. It solves the coil in Palace at the first guess, then <span class="mono">birdcage tune</span> takes secant steps on 1/f² (linear in C) on the same mesh until k = 1 is within the tolerance of f0. Numbers from <a href="https://github.com/benjhardy/birdcage-palace/tree/main/results">results/lp16_3T.json, hp16_3T.json, bp16_3T.json</a>.</p>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card pad" id="inputs">
+        <div class="grp">
+          <div class="lbl">Nucleus and field</div>
+          <p class="note"><sup>1</sup>H, f0 = 42.577 MHz/T &times; B0</p>
+          <div class="chips" id="b0Chips" role="group" aria-label="Field presets"><button type="button" data-v="1.5">1.5 T</button><button type="button" data-v="3">3 T</button><button type="button" data-v="7">7 T</button></div>
+          <div class="two">
+            <div class="field"><label for="b0">B0 <span class="u">(T)</span></label><input type="number" id="b0" step="any" min="0.1" max="11.7"></div>
+            <div class="field"><span class="lbl">f0</span><b class="mono" id="f0out"></b></div>
+          </div>
+        </div>
+        <div class="grp">
+          <div class="lbl" id="typeLbl">Coil type</div>
+          <div class="seg" id="typeSeg" role="group" aria-labelledby="typeLbl"><button type="button" data-v="lowpass">Low-pass</button><button type="button" data-v="highpass">High-pass</button><button type="button" data-v="bandpass">Band-pass</button></div>
+          <p class="note" id="typeNote"></p>
+          <div class="field" id="bpField"><label for="bandpass_ratio">Band-pass ratio C<sub>ring</sub>/C<sub>rung</sub></label><input type="number" id="bandpass_ratio" step="any" min="0.05" max="20"></div>
+        </div>
+        <div class="grp">
+          <div class="field"><label for="legsR">Rungs (legs) <span class="u">(even, 8&ndash;32)</span></label>
+            <div class="slide"><input type="range" id="legsR" min="8" max="32" step="2" aria-label="Rungs slider"><input type="number" id="legs" min="8" max="32" step="2"></div></div>
+          <div class="two">
+            <div class="field"><label for="diameter">Diameter <span class="u">(cm)</span></label><input type="number" id="diameter" step="any"></div>
+            <div class="field"><label for="length">Length <span class="u">(cm, ring centrelines)</span></label><input type="number" id="length" step="any"></div>
+          </div>
+          <div class="three">
+            <div class="field"><label for="leg_width">Rung width <span class="u">(mm)</span></label><input type="number" id="leg_width" step="any"></div>
+            <div class="field"><label for="ring_width">Ring width <span class="u">(mm)</span></label><input type="number" id="ring_width" step="any"></div>
+            <div class="field"><label for="gap">Capacitor gap <span class="u">(mm)</span></label><input type="number" id="gap" step="any"></div>
+          </div>
+        </div>
+        <div class="grp">
+          <label class="check"><input type="checkbox" id="shielded"> RF shield</label>
+          <div class="two" id="shieldFields">
+            <div class="field"><label for="shield">Shield diameter <span class="u">(cm)</span></label><input type="number" id="shield" step="any"></div>
+            <div class="field"><label for="shield_length">Shield length <span class="u">(cm)</span></label><input type="number" id="shield_length" step="any" placeholder="auto"></div>
+            <div class="field"><span class="lbl">Shield ends</span><div class="seg" id="endsSeg" role="group" aria-label="Shield ends"><button type="button" data-v="pec">PEC can</button><button type="button" data-v="absorbing">Open</button></div></div>
+          </div>
+          <p class="note" id="shieldNote"></p>
+        </div>
+        <div class="grp">
+          <label class="check"><input type="checkbox" id="phantom"> Saline phantom</label>
+          <div class="two" id="phFields">
+            <div class="field"><label for="phantom_radius">Radius <span class="u">(cm)</span></label><input type="number" id="phantom_radius" step="any"></div>
+            <div class="field"><label for="phantom_length">Length <span class="u">(cm)</span></label><input type="number" id="phantom_length" step="any"></div>
+            <div class="field"><label for="phantom_eps">&epsilon;<sub>r</sub></label><input type="number" id="phantom_eps" step="any"></div>
+            <div class="field"><label for="phantom_sigma">&sigma; <span class="u">(S/m)</span></label><input type="number" id="phantom_sigma" step="any"></div>
+          </div>
+        </div>
+        <div class="grp">
+          <div class="lbl" id="meshLbl">Mesh and solver</div>
+          <div class="seg" id="meshSeg" role="group" aria-labelledby="meshLbl"><button type="button" data-v="production">Production 5/2.5/35 mm</button><button type="button" data-v="coarse">Coarse 8/4/40 mm</button><button type="button" data-v="custom">Custom</button></div>
+          <div class="three" id="hFields">
+            <div class="field"><label for="h_coil">Strip edge <span class="u">(mm)</span></label><input type="number" id="h_coil" step="any"></div>
+            <div class="field"><label for="h_gap">Gap <span class="u">(mm)</span></label><input type="number" id="h_gap" step="any"></div>
+            <div class="field"><label for="h_max">Bulk <span class="u">(mm)</span></label><input type="number" id="h_max" step="any"></div>
+          </div>
+          <div class="three">
+            <div class="field"><label for="order">FE order</label><select id="order"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></div>
+            <div class="field"><label for="modes">Modes</label><input type="number" id="modes" min="1" max="60" step="1"></div>
+            <div class="field"><label for="np">MPI ranks</label><input type="number" id="np" min="1" max="64" step="1"></div>
+          </div>
+          <div class="two">
+            <div class="field"><label for="symmetry">Symmetry <span class="u">(low-pass only)</span></label><select id="symmetry"><option value="none">Full coil</option><option value="quarter">Quarter (x = 0 PEC, y = 0 PMC)</option><option value="eighth">Eighth (+ z = 0 PEC)</option></select></div>
+            <div class="field"><label for="tol">Tune tolerance <span class="u">(%)</span></label><input type="number" id="tol" step="any" min="0.01" max="10"></div>
+          </div>
+          <details><summary>Capacitor override (optional)</summary>
+            <div class="two" style="margin-top:8px">
+              <div class="field"><label for="c_leg">C rung <span class="u">(pF)</span></label><input type="number" id="c_leg" step="any" placeholder="ladder"></div>
+              <div class="field"><label for="c_ring">C ring <span class="u">(pF)</span></label><input type="number" id="c_ring" step="any" placeholder="ladder"></div>
+            </div>
+            <p class="note">Blank uses the ladder first guess (the CLI default). A value here goes to <span class="mono">--c-leg</span> / <span class="mono">--c-ring</span>.</p>
+          </details>
+        </div>
+        <div class="msgs" id="msgs" aria-live="polite"></div>
+        <div class="row"><button class="btn" id="resetBtn" type="button">Reset to CLI defaults</button></div>
+      </div>
+
+      <div class="card pad" id="costCard">
+        <h3>Cost of one Palace solve</h3>
+        <div class="readout" id="costOut"></div>
+        <p class="note" id="costNote"></p>
+        <details><summary>Measured runs behind the estimate</summary><div class="tblwrap"><table class="ref" id="anchorTbl"></table></div>
+          <p class="note">Tetrahedra come from a fit to 20 Gmsh builds of this geometry code (10 designs &times; 2 mesh presets, within 7 %). Unknowns per tetrahedron, memory and time are scaled from the Palace runs above (MUMPS direct solve, MGMaxLevels 1, 4 MPI ranks on an 8-thread, 32 GB machine). Time grows as unknowns<sup>1.24</sup>, memory as unknowns<sup>1.05</sup>. The upper end allows for a machine shared with another job.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="card pad" id="pkgCard" aria-label="Palace package">
+    <h2>Open in Palace and begin tuning</h2>
+    <p class="note">A web page cannot run Palace. This button writes a package for this design: <span class="mono">spec.json</span>, <span class="mono">run.sh</span> (Linux or WSL), <span class="mono">run.ps1</span> (Windows, runs run.sh in WSL) and a README with the requirements. The script installs birdcage-palace from GitHub, builds the coil, solves it at the ladder first guess, labels the modes, then tunes C until k = 1 is on f0.</p>
+    <div class="row"><button class="btn primary" id="goBtn" type="button">Open in Palace and begin tuning</button><span class="status" id="goStatus" aria-live="polite"></span></div>
+    <div class="grid2">
+      <div class="grp">
+        <div class="row"><div class="lbl" style="margin-right:auto">Commands (Linux or WSL)</div><button class="btn" id="copyCmd" type="button">Copy</button></div>
+        <pre class="cmd" id="cmdOut"></pre>
+      </div>
+      <div class="grp">
+        <div class="row"><div class="lbl" style="margin-right:auto">Agent prompt</div><button class="btn" id="copyPrompt" type="button">Copy agent prompt</button></div>
+        <pre class="cmd" id="promptOut" style="white-space: pre-wrap"></pre>
+        <p class="note">For a coding agent such as Claude Code with <a href="https://github.com/benjhardy/palace-agent-tools">palace-agent-tools</a> (Palace config linter, cost estimate, run guard, result checks).</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid2">
+    <div class="card pad">
+      <h3>Links</h3>
+      <ul class="links">
+        <li><a href="https://github.com/benjhardy/birdcage-palace">birdcage-palace on GitHub</a>: the Python package that run.sh installs (ladder model, Gmsh geometry, Palace config, mode labels, tune loop).</li>
+        <li><a href="/projects/birdcage-palace/">Project write-up</a>: the tuned 16-rung coil, mesh convergence, symmetry planes and port tuning.</li>
+        <li><a href="https://github.com/benjhardy/palace-agent-tools">palace-agent-tools</a>: tools an agent calls to set up, lint, run and check Palace jobs.</li>
+        <li><a href="/agent-rf/">agent.rf</a>: the RF lab hub this page belongs to.</li>
+        <li><a href="https://awslabs.github.io/palace/stable/install/">Palace install guide</a> (Spack, Apptainer/Singularity).</li>
+      </ul>
+    </div>
+    <div class="card pad">
+      <h3>References</h3>
+      <ol class="refs">
+        <li>C. E. Hayes, W. A. Edelstein, J. F. Schenck, O. M. Mueller, M. Eash, "An efficient, highly homogeneous radiofrequency coil for whole-body NMR imaging at 1.5 T," <i>J. Magn. Reson.</i> 63(3), 622&ndash;628 (1985). <a href="https://doi.org/10.1016/0022-2364(85)90257-4">doi:10.1016/0022-2364(85)90257-4</a></li>
+        <li>C.-L. Chin, C. M. Collins, S. Li, B. J. Dardzinski, M. B. Smith, "BirdcageBuilder: design of specified-geometry birdcage coils with desired current pattern and resonant frequency," <i>Concepts Magn. Reson.</i> 15(2), 156&ndash;163 (2002). <a href="https://doi.org/10.1002/cmr.10030">doi:10.1002/cmr.10030</a>. The ladder model here is the same family of model; this page is not that tool.</li>
+        <li>M. C. Leifer, "Resonant modes of the birdcage coil," <i>J. Magn. Reson.</i> 124, 51&ndash;60 (1997): the Fourier-mode form of the mutual inductances.</li>
+        <li>F. W. Grover, <i>Inductance Calculations</i> (1946): strip self-inductance by geometric mean distance.</li>
+      </ol>
+    </div>
+  </section>
+
+  <footer class="foot"><span>Made by Ben Hardy</span><a href="https://benjhardy.github.io/">benjhardy.github.io</a><span>MIT licence</span><span>Simulation only; nothing on this page is measured.</span></footer>
+</main>
+
+<script id="core">
+// Birdcage builder core: a line-by-line port of birdcage_palace/ladder.py (ladder network, Neumann/GMD
+// inductances, image-current shield), the CLI defaults, input checks, the cost estimate and the package writer.
+// Pure functions, no DOM. tests/test_web_parity.py checks Ladder against the Python package.
+const Ladder = (() => {
+  const K = 1e-7;                 // mu0 / (4 pi)
+  const GMD_STRIP = 0.2235;       // geometric mean distance of a thin strip, in units of its width
+  const GAMMA_BAR_1H = 42.577478e6;
+  const NL = 400, NA = 160;       // centre-line samples per rung and per ring segment (as ladder.py)
+
+  // Neumann integral between two straight z-directed rungs (z from -l/2 to l/2, same samples) at radii Ra, Rb,
+  // azimuth difference phi. The double sum over samples depends only on i - j, so it is folded to one sum.
+  function legPair(Ra, Rb, phi, l, delta) {
+    const n = NL, dz = l / n, rho2 = Ra * Ra + Rb * Rb - 2 * Ra * Rb * Math.cos(phi) + delta * delta;
+    let s = 0;
+    for (let d = 1 - n; d < n; d++) { const z = d * dz; s += (n - Math.abs(d)) / Math.sqrt(rho2 + z * z); }
+    return K * dz * dz * s;
+  }
+  // Neumann integral between ring segment a (radius Ra, angles 0..dphi) and segment b (radius Rb, angles
+  // phiB..phiB+dphi), axial separation h.
+  function arcPair(Ra, Rb, phiB, dphi, h, delta) {
+    const n = NA, dsa = Ra * dphi / n, dsb = Rb * dphi / n;
+    let s = 0;
+    for (let d = 1 - n; d < n; d++) {
+      const a = phiB + dphi * d / n;
+      s += (n - Math.abs(d)) * Math.cos(a) / Math.sqrt(Ra * Ra + Rb * Rb - 2 * Ra * Rb * Math.cos(a) + h * h + delta * delta);
+    }
+    return K * dsa * dsb * s;
+  }
+  function inductanceSpectrum(des) {
+    const N = des.legs, R = des.diameter / 2, l = des.length;
+    const dl = GMD_STRIP * des.leg_width, dr = GMD_STRIP * des.ring_width;
+    const Rs = des.shield_diameter ? des.shield_diameter / 2 : null, Ri = Rs ? Rs * Rs / R : null;
+    const dphi = 2 * Math.PI / N;
+    const mLeg = [], mTT = [], mTB = [];
+    for (let m = 0; m < N; m++) {
+      const ph = 2 * Math.PI * m / N;
+      mLeg[m] = legPair(R, R, ph, l, m === 0 ? dl : 0) - (Ri ? legPair(R, Ri, ph, l, 0) : 0);
+      mTT[m] = arcPair(R, R, ph, dphi, 0, dr) - (Ri ? arcPair(R, Ri, ph, dphi, 0, 0) : 0);
+      mTB[m] = arcPair(R, R, ph, dphi, l, dr) - (Ri ? arcPair(R, Ri, ph, dphi, l, 0) : 0);
+    }
+    const k = [], Lleg = [], Lring = [];
+    for (let kk = 0; kk <= N / 2; kk++) {
+      let a = 0, b = 0;
+      for (let m = 0; m < N; m++) { const c = Math.cos(2 * Math.PI * (kk * m) / N); a += c * mLeg[m]; b += c * (mTT[m] - mTB[m]); }
+      k.push(kk); Lleg.push(a); Lring.push(b);
+    }
+    let corot = 0; for (let m = 0; m < N; m++) corot += mTT[m] + mTB[m];
+    return { k, Lleg, Lring, Lring_corot: corot, M_leg: mLeg, M_tt: mTT, M_tb: mTB };
+  }
+  function modeFrequencies(des, ind, cl, cr) {
+    const N = des.legs, f = [];
+    ind.k.forEach((k, i) => {
+      const s2 = Math.sin(Math.PI * k / N) ** 2, Ll = ind.Lleg[i], Lr = ind.Lring[i];
+      let w2;
+      if (des.coil_type === 'lowpass') w2 = k === 0 ? 0 : 1 / (cl * (Ll + Lr / (2 * s2)));
+      else if (des.coil_type === 'highpass') w2 = 1 / (cr * (Lr + 2 * s2 * Ll));
+      else w2 = (1 / cr + 2 * s2 / cl) / (Lr + 2 * s2 * Ll);
+      f.push(Math.sqrt(w2) / (2 * Math.PI));
+    });
+    const out = { k: ind.k.slice(), f_hz: f, degenerate: ind.k.map(k => k > 0 && k < N / 2) };
+    if (des.coil_type !== 'lowpass') out.f_corot_hz = 1 / (2 * Math.PI * Math.sqrt(cr * ind.Lring_corot));
+    return out;
+  }
+  function capacitorForTarget(des, ind, fTarget, k = 1) {
+    const N = des.legs, w2 = (2 * Math.PI * fTarget) ** 2, s2 = Math.sin(Math.PI * k / N) ** 2;
+    const Ll = ind.Lleg[k], Lr = ind.Lring[k];
+    if (des.coil_type === 'lowpass') return [1 / (w2 * (Ll + Lr / (2 * s2))), null];
+    if (des.coil_type === 'highpass') return [null, 1 / (w2 * (Lr + 2 * s2 * Ll))];
+    const a = des.bandpass_ratio, cl = (1 / a + 2 * s2) / (w2 * (Lr + 2 * s2 * Ll));
+    return [cl, a * cl];
+  }
+  function analytic(des, fTarget) {
+    fTarget = fTarget || GAMMA_BAR_1H * des.b0;
+    const ind = inductanceSpectrum(des);
+    let cl = des.c_leg == null ? null : des.c_leg, cr = des.c_ring == null ? null : des.c_ring;
+    const t = des.coil_type;
+    if (((t === 'lowpass' || t === 'bandpass') && cl == null) || ((t === 'highpass' || t === 'bandpass') && cr == null))
+      [cl, cr] = capacitorForTarget(des, ind, fTarget);
+    return { f_target_hz: fTarget, c_leg: cl, c_ring: cr, spectrum: modeFrequencies(des, ind, cl, cr),
+      Lleg_k_nH: ind.Lleg.map(v => v * 1e9), Lring_k_nH: ind.Lring.map(v => v * 1e9),
+      Lleg_self_nH: ind.M_leg[0] * 1e9, Lring_seg_self_nH: ind.M_tt[0] * 1e9 };
+  }
+  // first guess for k = 1 at f0, and the spectrum with the capacitors the build will use (as cmd_build)
+  function design(des) {
+    const first = analytic(Object.assign({}, des, { c_leg: null, c_ring: null }));
+    const used = Object.assign({}, des);
+    if (used.c_leg == null && first.c_leg != null) used.c_leg = first.c_leg;
+    if (used.c_ring == null && first.c_ring != null) used.c_ring = first.c_ring;
+    return { first, used: analytic(used) };
+  }
+  return { analytic, design, inductanceSpectrum, modeFrequencies, capacitorForTarget, GAMMA_BAR_1H };
+})();
+
+const Spec = (() => {
+  // CLI defaults of `birdcage build` (birdcage_palace/cli.py), SI units, plus the solve/tune defaults.
+  const DEFAULTS = { legs: 16, diameter: 0.28, length: 0.25, leg_width: 0.012, ring_width: 0.015, gap: 0.005,
+    type: 'lowpass', b0: 3.0, shielded: true, shield: 0.34, shield_length: null, shield_ends: 'pec',
+    c_leg: null, c_ring: null, bandpass_ratio: 1.0, phantom: false, phantom_radius: 0.08, phantom_length: 0.20,
+    phantom_eps: 78.0, phantom_sigma: 0.6, mesh: 'production', h_coil: 0.005, h_gap: 0.0025, h_max: 0.035,
+    order: 2, modes: 20, symmetry: 'none', np: 4, tol: 0.005, max_iter: 4 };
+  const MESH = { production: [0.005, 0.0025, 0.035], coarse: [0.008, 0.004, 0.040] };
+  const short = { lowpass: 'lp', highpass: 'hp', bandpass: 'bp' };
+  const label = { lowpass: 'low-pass', highpass: 'high-pass', bandpass: 'band-pass' };
+  const fmt = v => String(+(+v).toPrecision(10));
+  const shieldLen = s => s.shielded ? (s.shield_length || s.length + 0.20) : null;
+  function toDesign(s) {
+    return { legs: s.legs, diameter: s.diameter, length: s.length, leg_width: s.leg_width, ring_width: s.ring_width,
+      gap: s.gap, coil_type: s.type, b0: s.b0, shield_diameter: s.shielded ? s.shield : null,
+      c_leg: s.c_leg, c_ring: s.c_ring, bandpass_ratio: s.bandpass_ratio };
+  }
+  function caseName(s) {
+    const b = fmt(s.b0).replace('.', 'p');
+    return `${short[s.type]}${s.legs}_d${Math.round(s.diameter * 100)}_${b}T` + (s.mesh === 'production' ? '' : '_' + s.mesh) +
+      (s.symmetry !== 'none' ? '_' + s.symmetry : '');
+  }
+  // [errors, warnings]: each {f: field id or '', m: message}
+  function check(s) {
+    const E = [], W = [], e = (f, m) => E.push({ f, m }), w = (f, m) => W.push({ f, m });
+    const num = (f, lo, hi, what) => { const v = s[f]; if (!(typeof v === 'number' && isFinite(v)) || v < lo || v > hi) e(f, `${what} must be between ${lo} and ${hi}.`); };
+    num('b0', 0.1, 11.7, 'B0 (T)');
+    if (!Number.isInteger(s.legs) || s.legs % 2 || s.legs < 8 || s.legs > 32) e('legs', 'Rungs must be an even number from 8 to 32.');
+    num('diameter', 0.08, 1.0, 'Diameter (m)'); num('length', 0.05, 1.0, 'Length (m)');
+    num('leg_width', 0.0005, 0.08, 'Rung width (m)'); num('ring_width', 0.0005, 0.08, 'End-ring width (m)'); num('gap', 0.0002, 0.05, 'Gap (m)');
+    if (E.length) return [E, W];
+    const R = s.diameter / 2;
+    if (s.leg_width * s.legs >= 0.8 * 3.14159 * s.diameter) e('leg_width', 'Rungs overlap: rung width × rungs must stay below 80 % of the circumference.');
+    if (s.ring_width >= s.length / 2) e('ring_width', 'End rings must be narrower than half the coil length.');
+    const rungLen = s.length - s.ring_width;
+    if ((s.type === 'lowpass' || s.type === 'bandpass') && s.gap >= 0.8 * rungLen) e('gap', `Gap must be shorter than the rung (${(rungLen * 100).toFixed(1)} cm between the rings).`);
+    const seg = Math.PI * s.diameter / s.legs - s.leg_width;
+    if ((s.type === 'highpass' || s.type === 'bandpass') && s.gap >= 0.8 * seg) e('gap', `Gap must be shorter than the end-ring segment between rungs (${(seg * 1000).toFixed(1)} mm).`);
+    if (s.type === 'bandpass' && !(s.bandpass_ratio > 0.05 && s.bandpass_ratio <= 20)) e('bandpass_ratio', 'Band-pass ratio must be between 0.05 and 20.');
+    if (s.shielded) {
+      if (!(s.shield > s.diameter + 0.01)) e('shield', 'Shield diameter must be more than the coil diameter + 1 cm.');
+      else if (s.shield < s.diameter + 0.03) w('shield', 'Shield within 1.5 cm of the rungs: the image currents cancel much of the rung inductance.');
+      if (s.shield_length != null && !(s.shield_length > s.length + s.ring_width + 0.02)) e('shield_length', 'Shield must be longer than the coil plus 2 cm.');
+      if (s.shield_ends === 'absorbing') w('', 'Open shield ends (absorbing): implemented in birdcage-palace but untested; the eigenproblem turns complex and slower.');
+    } else w('', 'Unshielded: absorbing outer boundary. Implemented but untested; complex eigenproblem.');
+    if (s.phantom) {
+      if (!(s.phantom_radius > 0.005 && s.phantom_radius < R - 0.01)) e('phantom_radius', 'Phantom radius must be at least 1 cm inside the rungs.');
+      const dom = shieldLen(s) || s.length + 0.6;
+      if (!(s.phantom_length > 0.01 && s.phantom_length < dom - 0.02)) e('phantom_length', 'Phantom must be shorter than the shield.');
+      if (!(s.phantom_eps >= 1)) e('phantom_eps', 'εr must be ≥ 1.');
+      if (!(s.phantom_sigma >= 0)) e('phantom_sigma', 'σ must be ≥ 0.');
+      w('', 'Lossy phantom: Palace solves a complex eigenproblem with GMRES. On our machine this took hours with 12+ modes; use the coarse mesh and 2–4 modes.');
+    }
+    if (!(s.h_coil > 0 && s.h_gap > 0 && s.h_max > 0)) e('h_coil', 'Mesh sizes must be positive.');
+    else {
+      if (s.h_gap > s.h_coil) e('h_gap', 'Gap mesh size should not exceed the strip-edge size.');
+      if (s.h_coil > s.h_max) e('h_max', 'Bulk size must be at least the strip-edge size.');
+      if (s.h_coil < 0.001) w('h_coil', 'Strip-edge size below 1 mm: the full model will not fit in 32 GB; use the eighth model.');
+    }
+    if (![1, 2, 3].includes(s.order)) e('order', 'FE order 1, 2 or 3.');
+    if (!(Number.isInteger(s.modes) && s.modes >= 1 && s.modes <= 60)) e('modes', 'Modes: 1 to 60.');
+    if (!(Number.isInteger(s.np) && s.np >= 1 && s.np <= 64)) e('np', 'MPI ranks: 1 to 64.');
+    if (!(s.tol >= 0.0001 && s.tol <= 0.1)) e('tol', 'Tolerance: 0.01 % to 10 %.');
+    if (s.symmetry !== 'none') {
+      if (s.type !== 'lowpass') e('symmetry', 'Symmetry planes are implemented for the low-pass coil only.');
+      if (s.legs % 4) e('symmetry', 'Symmetry planes need a multiple of 4 rungs.');
+      if (s.phantom) w('symmetry', 'Phantom with symmetry planes has not been tested.');
+      w('symmetry', 'A quarter or eighth model keeps one linear k = 1 member (B1 along y); tune works on it.');
+    }
+    for (const f of ['c_leg', 'c_ring']) if (s[f] != null && !(s[f] > 1e-14 && s[f] < 1e-8)) e(f, 'Capacitor must be between 0.01 pF and 10 nF.');
+    if (s.b0 > 4) w('b0', `At ${fmt(s.b0)} T (f0 = ${(Ladder.GAMMA_BAR_1H * s.b0 / 1e6).toFixed(1)} MHz) the coil is a sizeable fraction of a wavelength and the head load dominates. The quasi-static ladder model and an unloaded coil are weak guides here; treat the first guess loosely and add the phantom.`);
+    return [E, W];
+  }
+  function buildArgs(s) {
+    const a = [['legs', s.legs], ['diameter', s.diameter], ['length', s.length], ['leg-width', s.leg_width],
+      ['ring-width', s.ring_width], ['gap', s.gap], ['type', s.type], ['b0', s.b0], ['shield', s.shielded ? s.shield : 0]];
+    if (s.shielded && s.shield_length != null) a.push(['shield-length', s.shield_length]);
+    if (s.shielded && s.shield_ends !== 'pec') a.push(['shield-ends', s.shield_ends]);
+    if (s.type === 'bandpass') a.push(['bandpass-ratio', s.bandpass_ratio]);
+    if (s.c_leg != null && s.type !== 'highpass') a.push(['c-leg', s.c_leg]);
+    if (s.c_ring != null && s.type !== 'lowpass') a.push(['c-ring', s.c_ring]);
+    if (s.phantom) { a.push(['phantom', null], ['phantom-radius', s.phantom_radius], ['phantom-length', s.phantom_length], ['phantom-eps', s.phantom_eps], ['phantom-sigma', s.phantom_sigma]); }
+    a.push(['h-coil', s.h_coil], ['h-gap', s.h_gap], ['h-max', s.h_max], ['order', s.order], ['modes', s.modes]);
+    if (s.symmetry !== 'none') a.push(['symmetry', s.symmetry], ['sym-bc', s.symmetry === 'eighth' ? 'x=pec,y=pmc,z=pec' : 'x=pec,y=pmc']);
+    return a;
+  }
+  function buildCmd(s, bin, out, sep) {
+    const parts = buildArgs(s).map(([k, v]) => v === null ? `--${k}` : `--${k} ${typeof v === 'number' ? fmt(v) : v}`);
+    parts.push(`--out ${out}`);
+    const lines = [], per = 4;
+    for (let i = 0; i < parts.length; i += per) lines.push(parts.slice(i, i + per).join(' '));
+    return `${bin} build ` + lines.join(sep);
+  }
+  function specJson(s, lad, est, when) {
+    const build = {};
+    for (const [k, v] of buildArgs(s)) build[k.replace(/-/g, '_')] = v === null ? true : v;
+    build.out = 'runs/' + caseName(s);
+    const pf = c => c == null ? null : +(c * 1e12).toFixed(4);
+    const sp = lad.used.spectrum;
+    return { schema: 'birdcage-palace/spec-1', generated_by: 'https://benjhardy.github.io/birdcage-builder/', generated: when,
+      title: title(s), case: caseName(s), build,
+      tune: { np: s.np, tol: s.tol, max_iter: s.max_iter },
+      ladder: { model: 'ladder network, Neumann/GMD inductances' + (s.shielded ? ', shield by images' : ''),
+        f0_mhz: +(lad.first.f_target_hz / 1e6).toFixed(4), c_leg_first_guess_pf: pf(lad.first.c_leg), c_ring_first_guess_pf: pf(lad.first.c_ring),
+        c_leg_used_pf: pf(lad.used.c_leg), c_ring_used_pf: pf(lad.used.c_ring),
+        modes_mhz: sp.k.map((k, i) => ({ k, f_mhz: isFinite(sp.f_hz[i]) ? +(sp.f_hz[i] / 1e6).toFixed(3) : null, pair: sp.degenerate[i] })),
+        f_corot_ring_mhz: sp.f_corot_hz ? +(sp.f_corot_hz / 1e6).toFixed(3) : undefined },
+      estimate: est ? { label: 'estimate scaled from measured Palace runs (16-rung reference coils)', unknowns: est.unknowns, tets: est.tets,
+        peak_mem_gb: [est.memLo, est.memHi], solve_min: [est.tLo / 60, est.tHi / 60].map(v => +v.toFixed(1)),
+        tune_min: [est.tuneLo / 60, est.tuneHi / 60].map(v => +v.toFixed(1)), ranks: s.np } : undefined };
+  }
+  function title(s) {
+    return `${s.legs}-rung ${label[s.type]} birdcage, D ${fmt(s.diameter * 100)} cm, L ${fmt(s.length * 100)} cm, ${fmt(s.b0)} T`;
+  }
+  return { DEFAULTS, MESH, toDesign, caseName, check, buildArgs, buildCmd, specJson, title, label, fmt, shieldLen };
+})();
+
+const Cost = (() => {
+  // Tetrahedra: least-squares fit to 20 Gmsh builds of birdcage_palace.geometry (10 designs x 2 presets; max error
+  // 4.5 % coarse, 6.9 % production). Features: effective rung length (rung tubes overlap when the spacing pi D / N
+  // is below 12 cm), ring circumference, number of capacitor gaps, domain volume.
+  const TET = { coarse: [14372.3, 23579.0, 492.1, 114063.7], production: [36610.7, 46721.1, 1186.1, 185700.0] };
+  const UPT = { 1: 1.28, 2: 6.65, 3: 19.6 };          // unknowns per tetrahedron: measured (o1 coarse, o2 all, o3 eighth)
+  const SYM = { none: 1, quarter: 0.262, eighth: 0.135 }; // tets in the reduced model / full (measured, production)
+  const REF = { u: 1124818, s: 683, gb: 16.6 };        // full LP16 production run on a free machine, 20 modes, 4 ranks
+  const OMUL = { 1: 1.8, 2: 1, 3: 1 };                 // order-1 runs took longer per unknown than the o2 law
+  function feats(s) {
+    const N = s.legs, D = s.diameter, L = s.length, R = D / 2;
+    const Rd = s.shielded ? s.shield / 2 : Math.max(2 * R, R + 0.15), Ld = s.shielded ? Spec.shieldLen(s) : L + 0.6;
+    const Neff = N * Math.sqrt(Math.min(1, Math.PI * D / N / 0.12));
+    const nc = { lowpass: N, highpass: 2 * N, bandpass: 3 * N }[s.type];
+    return [Neff * (L - s.ring_width), Math.PI * D, nc, Math.PI * Rd * Rd * Ld];
+  }
+  function estimate(s) {
+    const f = feats(s);
+    let tets, rough = false;
+    if (s.mesh === 'coarse' || s.mesh === 'production') tets = f.reduce((a, v, i) => a + v * TET[s.mesh][i], 0);
+    else { tets = f.reduce((a, v, i) => a + v * TET.production[i], 0) * Math.pow(0.005 / s.h_coil, 1.8); rough = true; }
+    if (s.phantom) tets *= 1.25, rough = true;
+    tets *= SYM[s.symmetry] || 1;
+    const u = tets * UPT[s.order], x = u / REF.u;
+    const mem = REF.gb * Math.pow(x, 1.05);
+    const t = Math.max(20, REF.s * Math.pow(x, 1.24) * (0.08 + 0.92 * s.modes / 20) * OMUL[s.order]);
+    const lossy = s.phantom || !s.shielded || s.shield_ends === 'absorbing';
+    const tm = lossy ? 3 : 1;   // complex eigenproblem: at least 3x (measured loaded coarse o2: 5.4 min vs 3.8 min, 2 modes)
+    return { tets: Math.round(tets), unknowns: Math.round(u), memLo: +(mem * 0.8).toFixed(1), memHi: +(mem * 1.2).toFixed(1),
+      tLo: t * tm, tHi: t * 1.8 * tm, tuneLo: 2 * t * tm, tuneHi: 4 * t * 1.8 * tm, rough, lossy };
+  }
+  // Measured Palace runs (birdcage-palace results/*.json and README), 4 ranks unless noted
+  const ANCHORS = [
+    ['LP16, production, o2, full', '1.12 M', '16.2–16.6 GB', '11.4 min free; 13.6–20.4 min shared', 'lp16_3T, lp16_symmetry'],
+    ['HP16, production, o2, full', '1.20 M', '–', '12.4–13.2 min', 'hp16_3T'],
+    ['BP16, production, o2, full', '1.24 M', '–', '15.7 min', 'bp16_3T'],
+    ['LP16, production, o2, quarter', '0.30 M', '3.7 GB', '1.2 min (10 modes), 2.2 min (20)', 'lp16_symmetry'],
+    ['LP16, production, o2, eighth', '0.16 M', '2.1 GB', '0.7 min (10 modes)', 'lp16_symmetry'],
+    ['LP16, coarse, o2, full', '0.48 M', '6.6 GB', '3.8–6.6 min', 'README'],
+    ['LP16, coarse, o1, full', '92 k', '1.4 GB', '3.0 min', 'README'],
+    ['HP16, coarse, o1, full (3 ranks)', '0.10 M', '–', '1.0–2.2 min', 'hp16_coarse, hp16_3T'],
+  ];
+  return { estimate, ANCHORS };
+})();
+
+const Pkg = (() => {
+  const REPO = 'https://github.com/benjhardy/birdcage-palace';
+  const mins = v => v < 90 ? `${Math.max(1, Math.round(v / 30) / 2)} min` : `${(v / 60).toFixed(0)} min`;
+  const range = (a, b) => `${mins(a)}–${mins(b)}`.replace(' min–', '–');
+  function commands(s, bin = '"$B"') {
+    const c = 'runs/' + Spec.caseName(s);
+    return [
+      `${Spec.buildCmd(s, bin, c, ' \\\n    ')}`,
+      `${bin} solve --case ${c} --np "$NP"`,
+      `${bin} modes --case ${c}`,
+      `${bin} tune  --case ${c} --np "$NP" --tol ${Spec.fmt(s.tol)} --max-iter ${s.max_iter}`];
+  }
+  function shortCommands(s) {
+    const c = 'runs/' + Spec.caseName(s);
+    return [`python3 -m venv ~/.venvs/birdcage-palace && . ~/.venvs/birdcage-palace/bin/activate`,
+      `pip install "git+${REPO}"`, `NP=${s.np}`,
+      ...commands(s, 'birdcage').map(x => x.replace(/"\$NP"/g, '$NP'))].join('\n');
+  }
+  function runSh(s, lad, est, when) {
+    const [b, so, mo, tu] = commands(s);
+    return `#!/usr/bin/env bash
+# birdcage-palace run script, written by the birdcage builder (https://benjhardy.github.io/birdcage-builder/) ${when}
+# Design: ${Spec.title(s)}; f0 ${(lad.first.f_target_hz / 1e6).toFixed(3)} MHz
+# Mesh: ${s.mesh} (strip edge ${Spec.fmt(s.h_coil * 1000)} mm, gap ${Spec.fmt(s.h_gap * 1000)} mm, bulk ${Spec.fmt(s.h_max * 1000)} mm), order ${s.order}${s.symmetry !== 'none' ? ', ' + s.symmetry + ' model' : ''}
+# Estimate for one solve: ~${(est.unknowns / 1e6).toFixed(2)} M unknowns, ${est.memLo}-${est.memHi} GB, ${range(est.tLo, est.tHi)} on 4 ranks
+#
+# Usage:  bash run.sh            (Linux or WSL2)
+# Env:    NP=${s.np}  ranks          VENV=~/.venvs/birdcage-palace
+#         STOP_AFTER=build|solve|modes   stop early
+#         BIRDCAGE_PALACE_CMD="palace -np {np} {cfg}"   Palace launcher (auto-detected below)
+#         PALACE_SIF=/path/palace.sif                    Apptainer image, if Palace is not on the PATH
+#         BIRDCAGE_PIP="git+${REPO}"   package source
+set -euo pipefail
+cd "$(dirname "$0")"
+NP=\${NP:-${s.np}}
+VENV=\${VENV:-$HOME/.venvs/birdcage-palace}
+PKG=\${BIRDCAGE_PIP:-git+${REPO}}
+STOP_AFTER=\${STOP_AFTER:-}
+
+echo "== 1/5 Python environment: $VENV"
+command -v python3 >/dev/null || { echo "python3 not found (sudo apt install python3 python3-venv git)" >&2; exit 1; }
+[ -x "$VENV/bin/python" ] || python3 -m venv "$VENV"
+"$VENV/bin/python" -m pip install -q --upgrade pip
+"$VENV/bin/python" -m pip install -q --upgrade "$PKG"
+B="$VENV/bin/birdcage"
+"$B" --version
+
+echo "== 2/5 Palace launcher"
+if [ -z "\${BIRDCAGE_PALACE_CMD:-}" ]; then
+  if command -v run_palace >/dev/null; then BIRDCAGE_PALACE_CMD='run_palace {cfg} {np}'
+  elif command -v palace >/dev/null; then BIRDCAGE_PALACE_CMD='palace -np {np} {cfg}'
+  elif [ -n "\${PALACE_SIF:-}" ]; then BIRDCAGE_PALACE_CMD="apptainer run $PALACE_SIF -np {np} {cfg}"
+  elif [ -z "$STOP_AFTER" ] || [ "$STOP_AFTER" != build ]; then
+    echo "Palace not found. Install it (https://awslabs.github.io/palace/stable/install/) and put 'palace' on the PATH," >&2
+    echo "or set PALACE_SIF=/path/palace.sif, or BIRDCAGE_PALACE_CMD. STOP_AFTER=build runs the build only." >&2
+    exit 1
+  fi
+fi
+export BIRDCAGE_PALACE_CMD="\${BIRDCAGE_PALACE_CMD:-}"
+echo "Palace: $BIRDCAGE_PALACE_CMD  (ranks: $NP)"
+
+echo "== 3/5 build: ladder first guess, Gmsh mesh, Palace config"
+${b}
+[ "$STOP_AFTER" = build ] && exit 0
+
+echo "== 4/5 solve at the ladder first guess, then label the modes"
+${so}
+${mo}
+[ "$STOP_AFTER" = solve ] || [ "$STOP_AFTER" = modes ] && exit 0
+
+echo "== 5/5 tune: secant steps on 1/f^2 until k=1 is within ${(s.tol * 100).toFixed(2)} % of f0"
+${tu}
+echo "done: runs/${Spec.caseName(s)}/tune_summary.json, modes.json, figs/"
+`;
+  }
+  function runPs1(s) {
+    return `# Runs run.sh inside WSL2 (Palace runs in Linux). Written by the birdcage builder.
+# Usage: powershell -ExecutionPolicy Bypass -File run.ps1 [-Distro Ubuntu-24.04] [-Np ${s.np}] [-StopAfter build|solve|modes]
+param([string]$Distro = "Ubuntu-24.04", [int]$Np = ${s.np}, [string]$StopAfter = "")
+$ErrorActionPreference = "Stop"
+$here = (Split-Path -Parent $MyInvocation.MyCommand.Path) -replace '\\\\', '/'
+$wslDir = (wsl -d $Distro -- wslpath -a "$here").Trim()
+if (-not $wslDir) { throw "WSL distribution '$Distro' not found (wsl --list --verbose)" }
+wsl -d $Distro -- bash -lc "cd '$wslDir' && NP=$Np STOP_AFTER='$StopAfter' bash run.sh"
+exit $LASTEXITCODE
+`;
+  }
+  function altHint(s) {
+    const alt = [];
+    if (s.mesh !== 'coarse') alt.push('the coarse mesh');
+    if (s.type === 'lowpass' && s.legs % 4 === 0 && s.symmetry === 'none') alt.push('the quarter model');
+    if (!alt.length) alt.push('fewer modes or order 1');
+    return alt.join(' or ');
+  }
+  function readme(s, lad, est, when) {
+    const pf = c => c == null ? '-' : (c * 1e12).toFixed(3) + ' pF';
+    return `# ${Spec.title(s)}
+
+Package written by the birdcage builder (https://benjhardy.github.io/birdcage-builder/) ${when}.
+Case: runs/${Spec.caseName(s)}. Simulation only.
+
+| | |
+|---|---|
+| f0 (1H, 42.577 MHz/T x ${Spec.fmt(s.b0)} T) | ${(lad.first.f_target_hz / 1e6).toFixed(3)} MHz |
+| ladder first guess, C per rung gap | ${pf(lad.first.c_leg)} |
+| ladder first guess, C per end-ring gap | ${pf(lad.first.c_ring)} |
+| C used for the first solve | rung ${pf(lad.used.c_leg)}, ring ${pf(lad.used.c_ring)} |
+| mesh | ${s.mesh}: strip edge ${Spec.fmt(s.h_coil * 1000)} mm, gap ${Spec.fmt(s.h_gap * 1000)} mm, bulk ${Spec.fmt(s.h_max * 1000)} mm; order ${s.order}; ${s.modes} modes${s.symmetry !== 'none' ? '; ' + s.symmetry + ' model' : ''} |
+| estimate, one solve (${s.np} ranks) | ~${(est.unknowns / 1e6).toFixed(2)} M unknowns, ${est.memLo}-${est.memHi} GB peak, ${range(est.tLo, est.tHi)} |
+| estimate, tune loop (2-4 solves) | ${range(est.tuneLo, est.tuneHi)} |
+
+The estimate is scaled from measured Palace runs of 16-rung reference coils (MUMPS, 4 ranks, 8-thread 32 GB
+machine). The ladder model is a quasi-static first guess: for the 3 T reference coils Palace put k = 1 at 111.1 MHz
+with the low-pass first guess (tuned C 1.83 pF vs 2.81 pF), and the tuned high-pass and band-pass capacitors were
+2.5 % and 3.9 % above the first guess. That is what the tune step is for.
+
+## Requirements
+
+- Linux or Windows with WSL2 (tested: Ubuntu 24.04 in WSL2).
+- Palace 0.16 or newer: https://awslabs.github.io/palace/stable/install/
+  - Spack: \`spack install palace\`, then \`palace\` is on the PATH.
+  - Apptainer/Singularity: build the image from the Palace repo (\`apptainer build palace.sif palace.def\`), then
+    \`export PALACE_SIF=/path/to/palace.sif\`.
+  - Or any launcher: \`export BIRDCAGE_PALACE_CMD="mpirun -np {np} palace {cfg}"\` ({cfg} and {np} are filled in).
+- Python 3.10+ with venv and git: \`sudo apt install python3-venv git\`.
+- Gmsh comes from pip (the gmsh wheel, installed with birdcage-palace). It needs a few X/GL libraries even when
+  headless: \`sudo apt install libglu1-mesa libxcursor1 libxft2 libxinerama1\`.
+- Optional: GNU time (\`sudo apt install time\`) so solve_stats.json records the peak memory per rank.
+- Cores and memory: ${s.np} MPI ranks (the measured runs used 4 ranks on 8 threads); about ${Math.ceil(est.memHi)} GB of free RAM
+  for this mesh. If that is more than you have, pick ${altHint(s)} in the builder.
+
+## Run
+
+    bash run.sh                                   # Linux / WSL
+    powershell -ExecutionPolicy Bypass -File run.ps1   # Windows: runs run.sh in WSL
+
+Options: \`NP=8 bash run.sh\`, \`STOP_AFTER=build bash run.sh\` (mesh and config only), \`VENV=...\`.
+
+## Steps in run.sh
+
+1. \`pip install git+${REPO}\` into a venv (numpy, matplotlib, gmsh).
+2. \`birdcage build\`: ladder first guess, Gmsh mesh, Palace config (lumped C per gap, MUMPS, MGMaxLevels 1).
+   The same options are in spec.json: \`birdcage build --spec spec.json\` gives the same case.
+3. \`birdcage solve\` and \`birdcage modes\`: Palace eigenmodes at the first guess; every mode labelled by its
+   rung-current pattern (k) and ROI field uniformity.
+4. \`birdcage tune\`: rescales C with secant steps on 1/f^2 and re-solves on the same mesh until the k = 1 pair is
+   within ${(s.tol * 100).toFixed(2)} % of f0 (at most ${s.max_iter} solves).
+
+## Results
+
+- runs/${Spec.caseName(s)}/tune_summary.json: k = 1 frequency, final C, first guess, ROI std/mean of |B1|, quadrature B1+
+- runs/${Spec.caseName(s)}/modes.json: every mode; tune_history.json: every tune step; figs/: spectrum, B1 maps, currents
+- runs/${Spec.caseName(s)}/solve_stats.json: unknowns, wall time, memory
+
+Limits: lossless PEC strips and ideal capacitors, so the unloaded Q is infinite. The closed shield is a PEC can.
+See ${REPO}#limits.
+`;
+  }
+  function prompt(s, lad) {
+    const c = 'runs/' + Spec.caseName(s);
+    const pf = x => x == null ? null : (x * 1e12).toFixed(2) + ' pF';
+    const guess = [pf(lad.first.c_leg) && 'rung ' + pf(lad.first.c_leg), pf(lad.first.c_ring) && 'ring ' + pf(lad.first.c_ring)].filter(Boolean).join(', ');
+    return `Build, solve and tune this MRI birdcage coil in Palace with birdcage-palace (${REPO}). Use palace-agent-tools (https://github.com/benjhardy/palace-agent-tools) to lint the Palace config and check the cost before each solve.
+
+Coil: ${Spec.title(s)}. Target: k = 1 at f0 = ${(lad.first.f_target_hz / 1e6).toFixed(3)} MHz (1H). Ladder first guess: ${guess}.
+
+1. pip install "git+${REPO}" in a fresh venv.
+2. ${Spec.buildCmd(s, 'birdcage', c, ' ')}
+3. Check the config and the memory estimate against this machine. Keep MUMPS with "MGMaxLevels": 1. Run Palace in the foreground.
+4. birdcage solve --case ${c} --np ${s.np} && birdcage modes --case ${c}
+5. birdcage tune --case ${c} --np ${s.np} --tol ${Spec.fmt(s.tol)}
+
+Report from tune_summary.json and modes.json: k = 1 frequency (both members and the split), the final C per gap, the ladder first guess and the Palace k = 1 at that guess, ROI std/mean of |B1| (one mode) and of the quadrature B1+, unknowns, peak memory and wall time per solve. Simulation only: do not call any number measured.`;
+  }
+  function files(s, lad, est, when) {
+    return { 'spec.json': JSON.stringify(Spec.specJson(s, lad, est, when), null, 1) + '\n', 'run.sh': runSh(s, lad, est, when),
+      'run.ps1': runPs1(s).replace(/\n/g, '\r\n'), 'README.md': readme(s, lad, est, when) };
+  }
+  return { files, shortCommands, prompt, commands };
+})();
+</script>
+
+<script>
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- theme (same as the visual calculators) ----------
+const Theme = (() => {
+  const KEY = 'vc-theme', subs = [];
+  let col = null;
+  const eff = () => { const t = document.documentElement.dataset.theme; if (t === 'light' || t === 'dark') return t; return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; };
+  function read() {
+    const cs = getComputedStyle(document.documentElement), g = n => cs.getPropertyValue(n).trim();
+    col = {}; for (const n of ['bg', 'surface', 'ink', 'muted', 'line', 'grid', 'field', 'hfield', 'ok', 'bad', 'warn', 'accent', 'metal', 'metal-hi', 'diel', 'diel-edge', 'caprung', 'capring']) col[n.replace('-', '_')] = g('--' + n);
+    col.rgb = {}; for (const k in col) if (k !== 'rgb') col.rgb[k] = hexRgb(col[k]);
+    col.mono = g('--mono');
+  }
+  function label() { const b = $('#themeBtn'); const d = eff() === 'dark'; b.textContent = d ? 'Light' : 'Dark'; b.setAttribute('aria-label', 'Switch to ' + (d ? 'light' : 'dark') + ' theme'); }
+  function apply(t) { if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; read(); label(); subs.forEach(f => f()); }
+  function init() {
+    let saved = null; try { saved = localStorage.getItem(KEY); } catch (e) {}
+    if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+    read(); label();
+    $('#themeBtn').addEventListener('click', () => { const t = eff() === 'dark' ? 'light' : 'dark'; try { localStorage.setItem(KEY, t); } catch (e) {} apply(t); });
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { read(); label(); subs.forEach(f => f()); });
+  }
+  return { init, on: f => subs.push(f), get c() { if (!col) read(); return col; } };
+})();
+function hexRgb(h) { h = (h || '').trim(); if (h[0] !== '#') return [128, 128, 128]; if (h.length === 4) h = '#' + h[1] + h[1] + h[2] + h[2] + h[3] + h[3]; const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const rgba = (c, al = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${al})`;
+
+// ---------- state <-> inputs ----------
+// UI units: cm for diameter/length/shield/phantom, mm for widths/gap/mesh, pF for C, % for tol
+const UNIT = { diameter: 100, length: 100, shield: 100, shield_length: 100, phantom_radius: 100, phantom_length: 100,
+  leg_width: 1000, ring_width: 1000, gap: 1000, h_coil: 1000, h_gap: 1000, h_max: 1000, c_leg: 1e12, c_ring: 1e12, tol: 100 };
+const NUMS = ['b0', 'legs', 'diameter', 'length', 'leg_width', 'ring_width', 'gap', 'shield', 'shield_length', 'bandpass_ratio',
+  'phantom_radius', 'phantom_length', 'phantom_eps', 'phantom_sigma', 'h_coil', 'h_gap', 'h_max', 'modes', 'np', 'tol', 'c_leg', 'c_ring'];
+const INTS = new Set(['legs', 'modes', 'np']);
+const OPTIONAL = new Set(['shield_length', 'c_leg', 'c_ring']);
+let S = Object.assign({}, Spec.DEFAULTS);
+const KEY = 'bcb-state';
+
+function toUi(f, v) { if (v == null) return ''; return String(+(v * (UNIT[f] || 1)).toPrecision(8)); }
+function writeInputs() {
+  for (const f of NUMS) { const el = $('#' + f); if (document.activeElement !== el) el.value = toUi(f, S[f]); }
+  $('#legsR').value = S.legs;
+  $('#order').value = String(S.order); $('#symmetry').value = S.symmetry;
+  $('#shielded').checked = S.shielded; $('#phantom').checked = S.phantom;
+  setSeg('#typeSeg', S.type); setSeg('#endsSeg', S.shield_ends); setSeg('#meshSeg', S.mesh);
+  $$('#b0Chips button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === S.b0)));
+  $('#shieldFields').hidden = !S.shielded; $('#phFields').hidden = !S.phantom; $('#bpField').hidden = S.type !== 'bandpass';
+  $$('#hFields input').forEach(i => { i.disabled = S.mesh !== 'custom'; });
+  $('#symmetry').querySelectorAll('option').forEach(o => { if (o.value !== 'none') o.disabled = S.type !== 'lowpass' || S.legs % 4 !== 0; });
+}
+function setSeg(sel, v) { $$(sel + ' button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v))); }
+function readInput(f) {
+  const el = $('#' + f), raw = el.value.trim();
+  if (raw === '' && OPTIONAL.has(f)) { S[f] = null; return; }
+  const v = parseFloat(raw);
+  S[f] = INTS.has(f) ? (Number.isFinite(v) ? Math.round(v) : NaN) : (Number.isFinite(v) ? v / (UNIT[f] || 1) : NaN);
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+function load() { try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v && typeof v === 'object') for (const k in Spec.DEFAULTS) if (k in v) S[k] = v[k]; } catch (e) {} }
+
+// ---------- compute ----------
+let LAD = null, EST = null, ERRS = [], WARNS = [];
+function compute() {
+  [ERRS, WARNS] = Spec.check(S);
+  $$('#inputs input.bad').forEach(i => i.classList.remove('bad'));
+  ERRS.forEach(e => { const el = e.f && $('#' + e.f); if (el) el.classList.add('bad'); });
+  const box = $('#msgs'); box.innerHTML = '';
+  for (const e of ERRS) box.insertAdjacentHTML('beforeend', `<div class="msg e">${e.m}</div>`);
+  for (const w of WARNS) box.insertAdjacentHTML('beforeend', `<div class="msg w"><b>Note:</b> ${w.m}</div>`);
+  if (!ERRS.length) {
+    LAD = Ladder.design(Spec.toDesign(S));
+    EST = Cost.estimate(S);
+  }
+  $('#goBtn').disabled = !!ERRS.length;
+  $('#f0out').textContent = Number.isFinite(S.b0) ? (Ladder.GAMMA_BAR_1H * S.b0 / 1e6).toFixed(3) + ' MHz' : '–';
+  $('#typeNote').textContent = { lowpass: 'Capacitors in the rungs. k = 1 is the lowest mode above DC.', highpass: 'Capacitors in the end-ring segments. k = 1 is the highest rung mode; the end-ring modes sit above it.', bandpass: 'Capacitors in rungs and rings. The ratio sets C_ring/C_rung for the first guess.' }[S.type];
+  $('#shieldNote').textContent = S.shielded ? `Shield length ${S.shield_length ? 'set' : 'auto = coil length + 20 cm'} (${((Spec.shieldLen(S) || 0) * 100).toFixed(1)} cm). A PEC can closes the ends.` : '';
+  renderReadout(); renderSpectrum(); renderCost(); renderPkgText(); draw3d();
+  save();
+}
+
+// ---------- readouts and mode table ----------
+const MHz = f => (f / 1e6).toFixed(f < 1e8 ? 2 : 1);
+function renderReadout() {
+  const r = $('#readout'), t = $('#modeTbl');
+  if (ERRS.length) { r.innerHTML = '<div><span>Status</span><b>Fix the inputs</b></div>'; t.innerHTML = ''; $('#specNote').textContent = ''; return; }
+  const { first, used } = LAD, sp = used.spectrum, f0 = first.f_target_hz;
+  const i1 = sp.k.indexOf(1), f1 = sp.f_hz[i1];
+  const others = sp.f_hz.filter((f, i) => i !== i1 && f > 0 && isFinite(f)).concat(sp.f_corot_hz ? [sp.f_corot_hz] : []);
+  const near = others.length ? others.reduce((a, f) => Math.abs(f - f1) < Math.abs(a - f1) ? f : a) : null;
+  const pf = c => c == null ? '–' : (c * 1e12).toFixed(c < 1e-11 ? 3 : 2) + ' pF';
+  const lam = 299792458 / f0;
+  const items = [['f0', MHz(f0) + ' MHz', `λ0 = ${(lam * 100).toFixed(0)} cm`]];
+  if (first.c_leg != null) items.push(['First guess C, rung', pf(first.c_leg), `${S.legs} gaps`]);
+  if (first.c_ring != null) items.push(['First guess C, ring', pf(first.c_ring), `${2 * S.legs} gaps`]);
+  items.push(['Ladder k = 1', MHz(f1) + ' MHz', (S.c_leg != null || S.c_ring != null) ? 'with your C' : 'on f0 by construction']);
+  if (near) items.push(['Nearest other mode', MHz(near) + ' MHz', `${((near / f1 - 1) * 100).toFixed(1)} % from k = 1`]);
+  items.push(['L per rung (self)', used.Lleg_self_nH.toFixed(1) + ' nH', `ring seg. ${used.Lring_seg_self_nH.toFixed(1)} nH`]);
+  r.innerHTML = items.map(([a, b, c]) => `<div><span>${a}</span><b>${b}</b><small>${c}</small></div>`).join('');
+  $('#specNote').textContent = `${S.legs / 2 + 1} ladder modes${sp.f_corot_hz ? ' + co-rotating ring mode' : ''} · tall stem = degenerate pair`;
+  let h = '<thead><tr><th>k</th><th>f (MHz)</th><th>pair</th><th>vs f0</th></tr></thead><tbody>';
+  sp.k.forEach((k, i) => { const f = sp.f_hz[i]; if (S.type === 'lowpass' && k === 0) return;
+    h += `<tr${k === 1 ? ' class="hl"' : ''}><td>${k}${k === 0 ? ' (ring, counter-rot.)' : ''}</td><td>${isFinite(f) ? MHz(f) : '–'}</td><td>${sp.degenerate[i] ? 'yes' : 'no'}</td><td>${isFinite(f) ? ((f / f0 - 1) * 100).toFixed(1) + ' %' : ''}</td></tr>`; });
+  if (sp.f_corot_hz) h += `<tr><td>ring, co-rot.</td><td>${MHz(sp.f_corot_hz)}</td><td>no</td><td>${((sp.f_corot_hz / f0 - 1) * 100).toFixed(1)} %</td></tr>`;
+  t.innerHTML = h + '</tbody>';
+}
+
+// ---------- canvas helpers ----------
+function fitCanvas(cv) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1), w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); return [g, w, h];
+}
+function niceStep(span, n) { const r = span / n, p = Math.pow(10, Math.floor(Math.log10(r))), m = r / p; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p; }
+
+// ---------- spectrum plot ----------
+function renderSpectrum() {
+  const cv = $('#spec'), [g, W, H] = fitCanvas(cv), C = Theme.c;
+  g.clearRect(0, 0, W, H);
+  if (ERRS.length || !LAD) { g.fillStyle = C.muted; g.font = `13px ${C.mono}`; g.fillText('Fix the inputs to see the spectrum.', 16, 28); return; }
+  const sp = LAD.used.spectrum, f0 = LAD.first.f_target_hz / 1e6;
+  const pts = [];
+  sp.k.forEach((k, i) => { const f = sp.f_hz[i] / 1e6; if (f > 0 && isFinite(f)) pts.push({ f, lab: 'k' + k, k, pair: sp.degenerate[i] }); });
+  if (sp.f_corot_hz) pts.push({ f: sp.f_corot_hz / 1e6, lab: 'ring', k: -1, pair: false });
+  const fmax = Math.max(f0, ...pts.map(p => p.f)) * 1.08, fmin = 0;
+  const L = 16, R = 16, T = 16, B = 34, pw = W - L - R, ph = H - T - B;
+  const X = f => L + (f - fmin) / (fmax - fmin) * pw;
+  g.strokeStyle = C.line; g.lineWidth = 1; g.fillStyle = C.muted; g.font = `11px ${C.mono}`; g.textAlign = 'center';
+  const st = niceStep(fmax - fmin, W < 500 ? 4 : 8);
+  for (let f = 0; f <= fmax; f += st) { const x = X(f); g.strokeStyle = C.grid; g.beginPath(); g.moveTo(x, T); g.lineTo(x, T + ph); g.stroke(); g.fillText(f.toFixed(0), x, T + ph + 14); }
+  g.fillText('frequency (MHz)', L + pw / 2, H - 4);
+  g.strokeStyle = C.line; g.beginPath(); g.moveTo(L, T + ph); g.lineTo(L + pw, T + ph); g.stroke();
+  // f0 line
+  g.strokeStyle = C.ink; g.setLineDash([5, 4]); g.lineWidth = 1.2; g.beginPath(); g.moveTo(X(f0), T); g.lineTo(X(f0), T + ph); g.stroke(); g.setLineDash([]);
+  // stems with staggered labels
+  pts.sort((a, b) => a.f - b.f);
+  const rows = []; const minGap = 30;
+  for (const p of pts) {
+    const x = X(p.f); let r = 0; while (rows[r] !== undefined && x - rows[r] < minGap) r++; rows[r] = x; p.row = r;
+  }
+  const nrow = Math.max(1, rows.length), top = T + 14 + 13 * Math.min(nrow, 6);
+  for (const p of pts) {
+    const x = X(p.f), col = p.k === 1 ? C.field : p.k === -1 ? C.capring : p.k === 0 ? C.warn : C.accent;
+    const h = p.pair ? ph - (top - T) : (ph - (top - T)) * 0.6;
+    g.strokeStyle = col; g.lineWidth = p.k === 1 ? 3 : 2;
+    g.beginPath(); g.moveTo(x, T + ph); g.lineTo(x, T + ph - h); g.stroke();
+    g.fillStyle = col; g.beginPath(); g.arc(x, T + ph - h, p.k === 1 ? 4 : 3, 0, 7); g.fill();
+    if (p.row < 6) { g.font = `${p.k === 1 ? 600 : 500} 11px ${C.mono}`; g.fillText(p.lab, x, T + 12 + 13 * p.row); }
+  }
+  const fl = ` f0 ${f0.toFixed(1)} MHz `; g.font = `600 11px ${C.mono}`;
+  const right = X(f0) > L + pw * 0.6, tw = g.measureText(fl).width, tx = right ? X(f0) - tw - 2 : X(f0) + 2, ty = T + ph - 22;
+  g.fillStyle = rgba(Theme.c.rgb.surface, 0.9); g.fillRect(tx, ty - 10, tw, 14);
+  g.fillStyle = C.ink; g.textAlign = 'left'; g.fillText(fl, tx, ty);
+}
+
+// ---------- accuracy table (Palace results, birdcage-palace results/*.json) ----------
+const MEAS = [
+  { t: 'Low-pass', c: 'rung', guess: 2.807, fGuess: '111.08', mesh: 'production', tuned: 1.828, fTuned: '127.73', b1: '2.3 %' },
+  { t: 'High-pass', c: 'ring', guess: 36.88, fGuess: '135.20', mesh: 'coarse', tuned: 37.80, fTuned: '127.73', b1: '2.8 %' },
+  { t: 'Band-pass, ratio 1', c: 'both', guess: 39.68, fGuess: '136.12', mesh: 'coarse', tuned: 41.23, fTuned: '127.66', b1: '2.8 %' }];
+function renderAccuracy() {
+  let h = '<thead><tr><th>type (C in)</th><th>ladder C</th><th>Palace k=1</th><th>tuned C</th><th>ratio</th><th>k=1 tuned</th><th>B1+ std/mean</th></tr></thead><tbody>';
+  for (const m of MEAS) h += `<tr><td>${m.t} (${m.c})</td><td>${m.guess.toFixed(m.guess < 10 ? 2 : 2)} pF</td><td>${m.fGuess} MHz${m.mesh === 'coarse' ? '*' : ''}</td><td>${m.tuned.toFixed(2)} pF</td><td>${(m.tuned / m.guess).toFixed(3)}</td><td>${m.fTuned} MHz</td><td>${m.b1}</td></tr>`;
+  $('#accTbl').innerHTML = h + '</tbody>';
+  $('#accNote').textContent = 'Ratio = tuned C / ladder C. Tuned values on the production mesh (5/2.5/35 mm, order 2, 1.12–1.24 M unknowns). * Palace at the high-pass and band-pass first guess was solved on the coarse mesh only (8/4/40 mm, order 1), which reads about 4.5 % high for these two types. Low-pass is off by most: at 2–3 pF per rung the stray capacitance of the strips (fit: 1.21 pF) is two-thirds of the lumped value.';
+}
+
+// ---------- cost ----------
+function renderCost() {
+  const o = $('#costOut');
+  if (ERRS.length) { o.innerHTML = ''; $('#costNote').textContent = ''; return; }
+  const e = EST, M = v => v >= 1e6 ? (v / 1e6).toFixed(2) + ' M' : Math.round(v / 1e3) + ' k';
+  const n1 = v => v < 60 ? '<1' : (v / 60 < 10 ? (v / 60).toFixed(1) : (v / 60).toFixed(0)), mm = (a, b) => `${n1(a)}–${n1(b)} min`;
+  o.innerHTML = [['Tetrahedra', M(e.tets), S.symmetry !== 'none' ? S.symmetry + ' model' : 'full coil'], ['Unknowns', M(e.unknowns), 'order ' + S.order],
+    ['Peak memory', `${e.memLo}–${e.memHi} GB`, 'Palace, all ranks'], ['One solve', mm(e.tLo, e.tHi), `${S.modes} modes, 4 ranks`],
+    ['Tune loop', mm(e.tuneLo, e.tuneHi), '2–4 solves']].map(([a, b, c]) => `<div><span>${a}</span><b>${b}</b><small>${c}</small></div>`).join('');
+  let n = 'Estimate scaled from 8 measured Palace runs of 16-rung, 28 cm reference coils (4 production, 2 symmetry, 2 coarse).';
+  if (e.rough) n += ' Custom mesh or phantom: rougher.';
+  if (e.lossy) n += ' Phantom or open boundary: complex eigenproblem, time ×3 or more.';
+  if (e.memHi > 28) n += ' More memory than the 32 GB machine of the measured runs: use the coarse mesh' + (S.type === 'lowpass' && S.legs % 4 === 0 ? ' or a symmetry model.' : '.');
+  if (S.np !== 4) n += ` Times are for 4 ranks; ${S.np} ranks were not measured.`;
+  $('#costNote').textContent = n;
+}
+function renderAnchors() {
+  let h = '<thead><tr><th>run</th><th>unknowns</th><th>peak mem.</th><th>Palace time</th><th>source</th></tr></thead><tbody>';
+  for (const a of Cost.ANCHORS) h += `<tr>${a.map(x => `<td>${x}</td>`).join('')}</tr>`;
+  $('#anchorTbl').innerHTML = h + '</tbody>';
+}
+
+// ---------- package ----------
+const today = () => new Date().toISOString().slice(0, 10);
+function renderPkgText() {
+  if (ERRS.length) { $('#cmdOut').textContent = '# fix the inputs first'; $('#promptOut').textContent = ''; return; }
+  $('#cmdOut').textContent = Pkg.shortCommands(S);
+  $('#promptOut').textContent = Pkg.prompt(S, LAD);
+}
+function packageFiles() { return Pkg.files(S, LAD, EST, today()); }
+function saveBlob(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+let lastZip = null;
+async function makePackage() {
+  if (ERRS.length) return;
+  const files = packageFiles(), dir = 'birdcage_' + Spec.caseName(S), st = $('#goStatus');
+  if (typeof JSZip === 'undefined') {
+    for (const [n, t] of Object.entries(files)) saveBlob(new Blob([t], { type: 'text/plain' }), n);
+    st.textContent = 'Zip library not loaded (offline?): saved the 4 files separately.'; st.className = 'status'; return;
+  }
+  const z = new JSZip(), f = z.folder(dir);
+  for (const [n, t] of Object.entries(files)) f.file(n, t, n === 'run.sh' ? { unixPermissions: '755' } : { unixPermissions: '644' });
+  const blob = await z.generateAsync({ type: 'blob', platform: 'UNIX', compression: 'DEFLATE' });
+  lastZip = { name: dir + '.zip', size: blob.size };
+  saveBlob(blob, dir + '.zip');
+  st.textContent = `${dir}.zip (${(blob.size / 1024).toFixed(1)} kB). Unzip, then: bash run.sh (Linux/WSL) or run.ps1 (Windows).`; st.className = 'status ok';
+}
+async function copyText(t, btn) {
+  let ok = false;
+  try { await navigator.clipboard.writeText(t); ok = true; } catch (e) {
+    const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+    try { ok = document.execCommand('copy'); } catch (e2) {} ta.remove();
+  }
+  const old = btn.textContent; btn.textContent = ok ? 'Copied' : 'Copy failed'; setTimeout(() => { btn.textContent = old; }, 1400);
+}
+
+// ---------- 3D view (canvas projection) ----------
+const View = { R: null, anim: !REDUCED, cur: 'quad', t: 0 };
+function rotX(a) { const c = Math.cos(a), s = Math.sin(a); return [[1, 0, 0], [0, c, -s], [0, s, c]]; }
+function rotY(a) { const c = Math.cos(a), s = Math.sin(a); return [[c, 0, s], [0, 1, 0], [-s, 0, c]]; }
+function mul(A, B) { return A.map((r, i) => [0, 1, 2].map(j => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j])); }
+// world (x, y, z) with z the coil axis -> view frame where the axis starts horizontal
+const BASE = [[0, 0, 1], [0, 1, 0], [-1, 0, 0]];
+function resetView() { View.R = mul(rotX(-0.42), mul(rotY(0.62), BASE)); }
+resetView();
+function geomPrims(s) {
+  const N = s.legs, R = s.diameter / 2, l = s.length, wl = s.leg_width, wr = s.ring_width, g = s.gap;
+  const phi0 = s.symmetry !== 'none' ? Math.PI / N : 0;
+  const quads = [], P = (r, a, z) => [r * Math.cos(a), r * Math.sin(a), z];
+  const lpc = s.type !== 'highpass', hpc = s.type !== 'lowpass';
+  const da = wl / (2 * R), z0 = -l / 2 + wr / 2, z1 = l / 2 - wr / 2;
+  const strip = (a0, a1, za, zb, kind, n, extra) => { const am = (a0 + a1) / 2; quads.push(Object.assign({ p: [P(R, a0, za), P(R, a1, za), P(R, a1, zb), P(R, a0, zb)], nrm: [Math.cos(am), Math.sin(am), 0], kind, n }, extra || {})); };
+  for (let n = 0; n < N; n++) {
+    const ph = phi0 + 2 * Math.PI * n / N;
+    if (lpc) { strip(ph - da, ph + da, z0, -g / 2, 'rung', n); strip(ph - da, ph + da, -g / 2, g / 2, 'caprung', n); strip(ph - da, ph + da, g / 2, z1, 'rung', n); }
+    else strip(ph - da, ph + da, z0, z1, 'rung', n);
+  }
+  const dg = g / (2 * R);
+  for (const [side, zc] of [['top', l / 2], ['bot', -l / 2]]) {
+    for (let n = 0; n < N; n++) {
+      const ph = phi0 + 2 * Math.PI * n / N, mid = ph + Math.PI / N;
+      // segment n runs from rung n to rung n+1 (centred on mid); split into sub-quads for the curvature
+      const a0 = ph, a1 = ph + 2 * Math.PI / N, sub = Math.max(2, Math.ceil(48 / N));
+      const pieces = hpc ? [[a0, mid - dg], [mid + dg, a1]] : [[a0, a1]];
+      for (const [b0, b1] of pieces) for (let j = 0; j < sub; j++) strip(b0 + (b1 - b0) * j / sub, b0 + (b1 - b0) * (j + 1) / sub, zc - wr / 2, zc + wr / 2, 'ring', n, { side });
+      if (hpc) strip(mid - dg, mid + dg, zc - wr / 2, zc + wr / 2, 'capring', n, { side });
+    }
+  }
+  return { quads, phi0 };
+}
+function draw3d() {
+  const cv = $('#cv3'), [g, W, H] = fitCanvas(cv), C = Theme.c, RG = C.rgb;
+  g.clearRect(0, 0, W, H);
+  if (ERRS.length) { g.fillStyle = C.muted; g.font = `13px ${C.mono}`; g.fillText('Fix the inputs to see the coil.', 16, 40); legend3(); return; }
+  const s = S, R0 = s.diameter / 2, l = s.length, Rs = s.shielded ? s.shield / 2 : null, Ls = Spec.shieldLen(s);
+  const size = Math.max(Rs ? 2 * Rs : s.diameter * 1.2, Ls || l * 1.3);
+  const M = View.R, dist = 3.2 * size, sc = Math.min(W, H) * 0.82 / size * (dist / (dist - 0)) * 0.95;
+  const proj = p => { const x = M[0][0] * p[0] + M[0][1] * p[1] + M[0][2] * p[2], y = M[1][0] * p[0] + M[1][1] * p[1] + M[1][2] * p[2], z = M[2][0] * p[0] + M[2][1] * p[1] + M[2][2] * p[2];
+    const k = dist / (dist + z); return [W / 2 + x * sc * k, H / 2 - y * sc * k, z]; };
+  const rot = v => [M[0][0] * v[0] + M[0][1] * v[1] + M[0][2] * v[2], M[1][0] * v[0] + M[1][1] * v[1] + M[1][2] * v[2], M[2][0] * v[0] + M[2][1] * v[1] + M[2][2] * v[2]];
+  const line = (pts, col, w, dash) => { g.strokeStyle = col; g.lineWidth = w; g.setLineDash(dash || []); g.beginPath(); pts.forEach((p, i) => { const q = proj(p); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.stroke(); g.setLineDash([]); };
+  const circ = (r, z, n = 72) => Array.from({ length: n + 1 }, (_, i) => [r * Math.cos(2 * Math.PI * i / n), r * Math.sin(2 * Math.PI * i / n), z]);
+  // shield: translucent wireframe
+  if (Rs) {
+    const sc2 = rgba(RG.muted, 0.32);
+    for (const z of [-Ls / 2, Ls / 2]) { line(circ(Rs, z), sc2, s.shield_ends === 'pec' ? 1.6 : 1, s.shield_ends === 'pec' ? null : [4, 4]); if (s.shield_ends === 'pec') line(circ(Rs * 0.5, z, 48), rgba(RG.muted, 0.14), 1); }
+    for (let i = 0; i < 24; i++) { const a = 2 * Math.PI * i / 24; line([[Rs * Math.cos(a), Rs * Math.sin(a), -Ls / 2], [Rs * Math.cos(a), Rs * Math.sin(a), Ls / 2]], rgba(RG.muted, 0.16), 1); }
+    if (s.shield_ends === 'pec') for (let i = 0; i < 8; i++) { const a = 2 * Math.PI * i / 8; for (const z of [-Ls / 2, Ls / 2]) line([[0, 0, z], [Rs * Math.cos(a), Rs * Math.sin(a), z]], rgba(RG.muted, 0.1), 1); }
+  }
+  if (s.phantom) {
+    const pr = s.phantom_radius, pl = s.phantom_length;
+    for (const z of [-pl / 2, pl / 2]) line(circ(pr, z, 48), rgba(RG.hfield, 0.5), 1.2);
+    for (let i = 0; i < 12; i++) { const a = 2 * Math.PI * i / 12; line([[pr * Math.cos(a), pr * Math.sin(a), -pl / 2], [pr * Math.cos(a), pr * Math.sin(a), pl / 2]], rgba(RG.hfield, 0.25), 1); }
+  }
+  // currents for the k = 1 overlay
+  const { quads, phi0 } = geomPrims(s), N = s.legs;
+  const th = View.t, I = [], J = [];
+  for (let n = 0; n < N; n++) { const ph = phi0 + 2 * Math.PI * n / N; I.push(View.cur === 'quad' ? Math.cos(ph - th) : Math.cos(ph) * Math.cos(th)); }
+  { let acc = 0; for (let n = 0; n < N; n++) { acc += I[n]; J.push(acc); } const m = J.reduce((a, b) => a + b, 0) / N; for (let n = 0; n < N; n++) J[n] -= m; }
+  const jmax = Math.max(1e-9, ...J.map(Math.abs));
+  const on = View.cur !== 'off';
+  const curCol = v => v >= 0 ? mix(RG.metal, RG.field, Math.min(1, Math.abs(v))) : mix(RG.metal, RG.hfield, Math.min(1, Math.abs(v)));
+  // painter's sort of the conductor quads
+  const items = quads.map(q => { const pp = q.p.map(proj); return { q, pp, z: pp.reduce((a, p) => a + p[2], 0) / 4, front: rot(q.nrm)[2] < 0 }; });
+  items.sort((a, b) => b.z - a.z);
+  for (const it of items) {
+    const { q, pp, front } = it;
+    let col;
+    if (q.kind === 'caprung') col = RG.caprung; else if (q.kind === 'capring') col = RG.capring;
+    else if (on && q.kind === 'rung') col = curCol(I[q.n]);
+    else if (on && q.kind === 'ring') col = curCol((q.side === 'top' ? 1 : -1) * J[q.n] / jmax * 0.85);
+    else col = RG.metal;
+    if (!front) col = mix(col, RG.surface, 0.45);
+    g.fillStyle = rgba(col, 1); g.strokeStyle = rgba(col, 1); g.lineWidth = 0.8;
+    g.beginPath(); pp.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fill(); g.stroke();
+  }
+  // arrows for the rung currents and B1 at the centre
+  if (on) {
+    const arrow = (a, b, col, w) => { const p = proj(a), q = proj(b), dx = q[0] - p[0], dy = q[1] - p[1], L = Math.hypot(dx, dy); if (L < 3) return;
+      g.strokeStyle = col; g.fillStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(q[0], q[1]); g.stroke();
+      const ux = dx / L, uy = dy / L, hl = Math.min(9, L * 0.45); g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(q[0] - ux * hl - uy * hl * 0.5, q[1] - uy * hl + ux * hl * 0.5); g.lineTo(q[0] - ux * hl + uy * hl * 0.5, q[1] - uy * hl - ux * hl * 0.5); g.closePath(); g.fill(); };
+    const Rr = R0 * 1.06, zc = l * 0.22;
+    for (let n = 0; n < N; n++) { const ph = phi0 + 2 * Math.PI * n / N, a = I[n] * l * 0.14; if (Math.abs(I[n]) < 0.08) continue;
+      arrow([Rr * Math.cos(ph), Rr * Math.sin(ph), zc - a], [Rr * Math.cos(ph), Rr * Math.sin(ph), zc + a], rgba(I[n] > 0 ? RG.field : RG.hfield, 0.95), 1.6); }
+    let bx = 0, by = 0; for (let n = 0; n < N; n++) { const ph = phi0 + 2 * Math.PI * n / N; bx += I[n] * Math.sin(ph); by -= I[n] * Math.cos(ph); }
+    const bn = N / 2, len = 0.55 * R0;
+    if (Math.hypot(bx, by) / bn > 0.05) arrow([0, 0, 0], [bx / bn * len, by / bn * len, 0], rgba(RG.ink, 1), 2.6);
+    const lp = proj([bx / bn * len * 1.15, by / bn * len * 1.15, 0]);
+    g.fillStyle = C.ink; g.font = `600 12px ${C.mono}`; g.textAlign = 'center'; if (Math.hypot(bx, by) / bn > 0.05) g.fillText('B1', lp[0], lp[1]);
+  }
+  // dimensions
+  const tag = (p, txt) => { const q = proj(p); g.font = `600 11px ${C.mono}`; const w = g.measureText(txt).width + 10; g.fillStyle = rgba(RG.surface, 0.85); g.fillRect(q[0] - w / 2, q[1] - 9, w, 17); g.fillStyle = C.ink; g.textAlign = 'center'; g.fillText(txt, q[0], q[1] + 4); };
+  const dimc = rgba(RG.ink, 0.7);
+  const dz = l / 2 + s.ring_width * 0.5 + 0.012;
+  line([[0, -R0, dz], [0, R0, dz]], dimc, 1, [3, 3]);
+  tag([0, 0, dz + 0.01], `⌀ ${Spec.fmt(s.diameter * 100)} cm`);
+  const ar = -Math.PI / 2 + 0.25, rr = R0 + 0.022;
+  line([[rr * Math.cos(ar), rr * Math.sin(ar), -l / 2], [rr * Math.cos(ar), rr * Math.sin(ar), l / 2]], dimc, 1, [3, 3]);
+  tag([rr * Math.cos(ar), rr * Math.sin(ar), 0], `L ${Spec.fmt(l * 100)} cm`);
+  if (Rs) tag([Rs * Math.cos(2.4), Rs * Math.sin(2.4), -Ls / 2], `shield ⌀ ${Spec.fmt(s.shield * 100)} × ${Spec.fmt(+(Ls * 100).toFixed(1))} cm`);
+  g.textAlign = 'right'; g.fillStyle = C.muted; g.font = `11px ${C.mono}`;
+  g.fillText(`${N} rungs · ${Spec.label[s.type]}`, W - 10, 18);
+  legend3();
+}
+function legend3() {
+  const C = Theme.c, items = [[C.metal, 'copper strip (PEC)']];
+  if (S.type !== 'highpass') items.push([C.caprung, `capacitor in rung (${S.legs})`]);
+  if (S.type !== 'lowpass') items.push([C.capring, `capacitor in end ring (${2 * S.legs})`]);
+  if (View.cur !== 'off') items.push([C.field, '+ current'], [C.hfield, '− current']);
+  let h = items.map(([c, t]) => `<span><i style="background:${c}"></i>${t}</span>`).join('');
+  if (S.shielded) h += `<span><i class="ln" style="color:${C.muted}"></i>shield, ${S.shield_ends === 'pec' ? 'closed PEC can' : 'open ends'}</span>`;
+  if (S.phantom) h += `<span><i class="ln" style="color:${C.hfield}"></i>phantom</span>`;
+  $('#leg3').innerHTML = h;
+}
+function bindDrag() {
+  const st = $('#stage3'); let last = null;
+  st.addEventListener('pointerdown', e => { last = [e.clientX, e.clientY]; st.setPointerCapture(e.pointerId); });
+  st.addEventListener('pointermove', e => { if (!last) return; const dx = e.clientX - last[0], dy = e.clientY - last[1]; last = [e.clientX, e.clientY];
+    View.R = mul(rotX(-dy * 0.01), mul(rotY(dx * 0.01), View.R)); if (!View.anim) draw3d(); });
+  const end = () => { last = null; }; st.addEventListener('pointerup', end); st.addEventListener('pointercancel', end);
+}
+let rafId = null, lastT = 0;
+function loop(ts) {
+  if (!View.anim || View.cur === 'off') { rafId = null; return; }
+  const dt = lastT ? Math.min(0.05, (ts - lastT) / 1000) : 0; lastT = ts; View.t += dt * 1.6; draw3d(); rafId = requestAnimationFrame(loop);
+}
+function kick() { lastT = 0; if (View.anim && View.cur !== 'off' && !rafId) rafId = requestAnimationFrame(loop); else draw3d(); $('#playBtn').textContent = View.anim ? 'Pause' : 'Play'; $('#playBtn').disabled = View.cur === 'off'; }
+
+// ---------- wiring ----------
+function init() {
+  Theme.init(); load();
+  writeInputs(); renderAccuracy(); renderAnchors();
+  for (const f of NUMS) $('#' + f).addEventListener('input', () => { readInput(f); if (f === 'legs' && Number.isFinite(S.legs)) $('#legsR').value = S.legs; compute(); });
+  for (const f of NUMS) $('#' + f).addEventListener('change', () => writeInputs());
+  $('#legsR').addEventListener('input', e => { S.legs = +e.target.value; writeInputs(); compute(); });
+  $('#order').addEventListener('change', e => { S.order = +e.target.value; compute(); });
+  $('#symmetry').addEventListener('change', e => { S.symmetry = e.target.value; compute(); });
+  $('#shielded').addEventListener('change', e => { S.shielded = e.target.checked; writeInputs(); compute(); });
+  $('#phantom').addEventListener('change', e => { S.phantom = e.target.checked; writeInputs(); compute(); });
+  const seg = (sel, f, after) => $$(sel + ' button').forEach(b => b.addEventListener('click', () => { S[f] = b.dataset.v; if (after) after(); writeInputs(); compute(); }));
+  seg('#typeSeg', 'type', () => { if (S.type !== 'lowpass') S.symmetry = 'none'; });
+  seg('#endsSeg', 'shield_ends');
+  seg('#meshSeg', 'mesh', () => { if (Spec.MESH[S.mesh]) [S.h_coil, S.h_gap, S.h_max] = Spec.MESH[S.mesh]; });
+  $$('#b0Chips button').forEach(b => b.addEventListener('click', () => { S.b0 = +b.dataset.v; writeInputs(); compute(); }));
+  $('#resetBtn').addEventListener('click', () => { S = Object.assign({}, Spec.DEFAULTS); writeInputs(); compute(); });
+  $$('#curSeg button').forEach(b => b.addEventListener('click', () => { View.cur = b.dataset.v; setSeg('#curSeg', View.cur); kick(); }));
+  setSeg('#curSeg', View.cur);
+  $('#playBtn').addEventListener('click', () => { View.anim = !View.anim; kick(); });
+  $('#resetView').addEventListener('click', () => { resetView(); draw3d(); });
+  $('#goBtn').addEventListener('click', () => { makePackage().catch(err => { $('#goStatus').textContent = 'Could not write the zip: ' + err.message; }); });
+  $('#copyCmd').addEventListener('click', e => copyText($('#cmdOut').textContent, e.currentTarget));
+  $('#copyPrompt').addEventListener('click', e => copyText($('#promptOut').textContent, e.currentTarget));
+  bindDrag();
+  Theme.on(() => { renderSpectrum(); draw3d(); });
+  let rz = null; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { renderSpectrum(); draw3d(); }, 80); });
+  compute(); kick();
+}
+init();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+</body>
+</html>

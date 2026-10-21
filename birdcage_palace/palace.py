@@ -128,7 +128,10 @@ def palace_busy(distro: str = "Ubuntu-24.04") -> list[str]:
 def run(case: Path, np_: int = 4, palace_cmd: str = "run_palace {cfg} {np}", distro: str = "Ubuntu-24.04") -> dict:
     """Run Palace on case/config.json. On Windows the command runs inside WSL (Palace via Apptainer)."""
     case = Path(case)
-    inner = f"/usr/bin/time -v {palace_cmd.format(cfg='config.json', np=np_)} > palace.log 2> time.log"
+    pcmd = palace_cmd.format(cfg="config.json", np=np_)
+    # GNU time records the peak memory per rank when it is installed; without it Palace still runs
+    inner = (f"if [ -x /usr/bin/time ]; then /usr/bin/time -v {pcmd} > palace.log 2> time.log; "
+             f"else {pcmd} > palace.log 2> time.log; fi")
     t0 = time.time()
     if platform.system() == "Windows":
         cmd = ["wsl", "-d", distro, "--", "bash", "-lc", f"cd {shlex.quote(_wslpath(case))} && {inner}"]

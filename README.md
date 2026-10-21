@@ -2,6 +2,9 @@
 
 Project page: https://benjhardy.github.io/projects/birdcage-palace/ · part of [benjhardy.github.io](https://benjhardy.github.io)
 
+Live builder: https://benjhardy.github.io/birdcage-builder/ (set the specs in the browser, see the ladder-model spectrum,
+and download a package that builds, solves and tunes the coil with this repo; source in [`web/`](web/birdcage-builder/index.html)).
+
 An open-source, scriptable builder for MRI birdcage RF coils. It sizes the capacitors with a ladder-network model,
 builds the coil in [Gmsh](https://gmsh.info), solves the full-wave eigenmodes with the
 [Palace](https://github.com/awslabs/palace) finite-element solver, and then picks out the one mode that
@@ -79,9 +82,14 @@ birdcage tune  --case runs/lp16 --tol 0.005 # rescale C until the k=1 pair is wi
 secant steps on 1/f². `tools/make_video.py`, `tools/export_docs.py` and `tools/hero.py` rebuild the clip, the
 figures in `docs/img` and the hero image from a solved case.
 
+`birdcage build --spec spec.json --out runs/x` takes the options from a JSON file (for example the builder's spec.json);
+flags on the command line override it. `pip install git+https://github.com/benjhardy/birdcage-palace` installs the
+`birdcage` command (or use `python -m birdcage_palace`).
+
 `birdcage build --help` lists every option: rung and ring widths, gap, high-pass and band-pass, shield size and end
 caps, phantom, mesh sizes and FE order. Palace is called as `run_palace config.json <np>` (a wrapper around the
-Palace Apptainer image `palace -np <np> config.json`). On Windows the command runs inside WSL2.
+Palace Apptainer image `palace -np <np> config.json`); `--palace-cmd "palace -np {np} {cfg}"` or the
+`BIRDCAGE_PALACE_CMD` environment variable sets another launcher. On Windows the command runs inside WSL2.
 
 ## Results: default 16-rung low-pass head coil at 3 T
 
@@ -438,8 +446,10 @@ Clip: [`docs/img/birdcage_porttune.mp4`](docs/img/birdcage_porttune.mp4) (silent
 * The quadrature B1+ map is a superposition of the two k = 1 eigenmodes, which is what an ideal, decoupled
   quadrature drive excites at resonance. It is not a driven two-port solve.
 * The ladder model is quasi-static and ignores stray capacitance. It is a starting point, not the answer.
-* Only the low-pass coil has been taken through mesh refinement and the tune loop. The high-pass coil has one coarse
-  solve (above). Band-pass geometry and ladder formulas are implemented but have not been solved in Palace yet.
+* Only the low-pass coil has been taken through mesh refinement. The high-pass and band-pass (ratio 1) coils were tuned
+  on the production mesh ([`results/hp16_3T.json`](results/hp16_3T.json): 37.80 pF per ring gap, k = 1 at 127.73 MHz,
+  ladder first guess 36.88 pF; [`results/bp16_3T.json`](results/bp16_3T.json): 41.23 pF in every gap, 127.66 MHz, ladder
+  first guess 39.68 pF) but not refined further.
 
 ## References
 
