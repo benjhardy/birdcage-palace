@@ -126,8 +126,8 @@ def fig_spectra(cs, out: Path):
         res = c["res"]
         name, where = NAMES[c["des"]["coil_type"]]
         rows = res["comparison"]
-        last_x, lev = -1e9, 0
-        for r in sorted(rows, key=lambda r: np.mean(r["f_palace_mhz"]) if r["f_palace_mhz"] else 0):
+        pts_ = []
+        for r in rows:
             fp = r["f_palace_mhz"]
             if not fp:
                 continue
@@ -138,17 +138,47 @@ def fig_spectra(cs, out: Path):
             ax.plot([fpm], [1.0], "o", ms=8, color=plots.BLUE, zorder=3)
             ax.plot([fl], [0.0], "D", ms=6.5, mfc="white", mec=plots.ORANGE, mew=1.6, zorder=3)
             ax.plot([fl, fpm], [0.0, 1.0], color=MUTED, lw=0.7, zorder=1)
-            lab = f"{k}" if not (k == 0 and c["des"]["coil_type"] != "lowpass") else "0*"
-            lev = (lev + 1) % 3 if fpm - last_x < 6.0 else 0
-            last_x = fpm
-            ax.text(fpm, 1.22 + 0.22 * lev, lab, ha="center", va="bottom", fontsize=9, color=INK,
-                    weight="bold" if k == 1 else "normal")
+            pts_.append((fpm, k, f"{k}" if not (k == 0 and c["des"]["coil_type"] != "lowpass") else "0*"))
+        # labels: modes closer than 6 MHz form a cluster; a cluster of more than two gets one "a-b" label
+        pts_.sort()
+        clusters, cur = [], []
+        for q in pts_:
+            if cur and q[0] - cur[-1][0] > 6.0:
+                clusters.append(cur); cur = []
+            cur.append(q)
+        if cur:
+            clusters.append(cur)
+        for cl in clusters:
+            if len(cl) > 2:
+                ks = sorted(q[1] for q in cl)
+                ax.text(np.mean([q[0] for q in cl]), 1.22, f"{ks[0]}-{ks[-1]}", ha="center", va="bottom", fontsize=9,
+                        color=INK)
+            else:
+                for i, (fpm, k, lab) in enumerate(cl):
+                    ax.text(fpm + (i - (len(cl) - 1) / 2) * 7, 1.22, lab, ha="center", va="bottom", fontsize=9,
+                            color=INK, weight="bold" if k == 1 else "normal")
         # Palace modes that are not in the ladder comparison (cap-free, co-rotating ring, other)
         used = {round(f, 6) for r in rows for f in r["f_palace_mhz"]}
         other = [m for m in res["modes"] if round(m["f_mhz"], 6) not in used]
-        for m in other:
+        last_o, lev_o, last_t = -1e9, 0, None
+        for m in sorted(other, key=lambda m: m["f_mhz"]):
             fmax = max(fmax, m["f_mhz"])
             ax.plot([m["f_mhz"]], [1.0], "x", ms=7, mew=1.5, color=MUTED, zorder=2)
+            if m.get("cap_free"):
+                t = "s"
+            elif m.get("k") == 0 and m.get("ring_current_frac", 1) < 0.5:
+                t = "0"
+            elif m.get("ring_bot_over_top", 1) < 0 and m.get("k") is not None:
+                t = f"{m['k']}c"
+            elif m.get("k") == 0:
+                t = "0"
+            else:
+                t = "?"
+            if m["f_mhz"] - last_o < 6.0 and t == last_t:
+                continue  # one label per degenerate pair
+            lev_o = (lev_o + 1) % 2 if m["f_mhz"] - last_o < 6.0 else 0
+            last_o, last_t = m["f_mhz"], t
+            ax.text(m["f_mhz"] + 5 * lev_o, 0.78, t, ha="center", va="top", fontsize=8.5, color=MUTED)
         if c["an"]["spectrum"].get("f_corot_hz"):
             fc = c["an"]["spectrum"]["f_corot_hz"] / 1e6
             ax.plot([fc], [0.0], "D", ms=6.5, mfc="white", mec=MUTED, mew=1.4)
@@ -169,10 +199,10 @@ def fig_spectra(cs, out: Path):
                  fontsize=15, weight="bold", color=INK)
     fig.text(0.03, 0.935, "Numbers above the markers: mode index k (pairs averaged). Filled circles: Palace eigenmodes. "
              "Open diamonds: ladder model at the same C (grey: co-rotating end-ring mode).\n"
-             "Grey crosses: Palace modes outside the ladder model (no capacitor current, co-rotating ring mode, "
-             "higher-order). 0*: end-ring k = 0 (counter-rotating).", fontsize=9, color=INK2, va="top")
+             "Grey crosses (label below): Palace modes outside the ladder model. kc: co-rotating end-ring family with k periods; "
+             "s: no capacitor current (stray-C resonance);\n0: rungs in phase. 0*: end-ring k = 0, counter-rotating.", fontsize=9, color=INK2, va="top")
     fig.text(0.97, 0.01, "Palace FEM · unloaded · simulation only", ha="right", fontsize=9, color=INK2, style="italic")
-    fig.subplots_adjust(left=0.07, right=0.98, top=0.84, bottom=0.08, hspace=0.55)
+    fig.subplots_adjust(left=0.07, right=0.98, top=0.82, bottom=0.08, hspace=0.55)
     fig.savefig(out, dpi=150, facecolor="white")
     return out
 

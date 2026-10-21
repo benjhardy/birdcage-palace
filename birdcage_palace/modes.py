@@ -190,6 +190,12 @@ def analyse(case: Path) -> dict:
                 ratio = np.vdot(t, b) / max(np.vdot(t, t).real, 1e-300)
                 rec["ring_bot_over_top"] = float(np.real(ratio))
                 rec["ring_current_frac"] = float(np.sum(np.abs(I[top_idx + bot_idx]) ** 2) / np.sum(np.abs(I) ** 2))
+                if leg_idx and rec["ring_current_frac"] > 0.98:
+                    # band-pass end-ring mode: the rungs carry (almost) no current, so take k from the ring capacitors
+                    p = _dft_power(t)
+                    k = int(np.argmax(p))
+                    rec.update(k=k, k_purity=float(p[k]), dft_power=p.tolist(), pattern_source="top end-ring capacitor currents",
+                               currents_re=np.real(t).tolist(), currents_im=np.imag(t).tolist())
         if "B" in r:
             B = r["B"][m]
             roi = B[sl["roi"]]
@@ -222,7 +228,7 @@ def analyse(case: Path) -> dict:
         elif kk is None:
             md["label"] = "?"
         elif kk == 0:
-            if des["coil_type"] == "lowpass":
+            if des["coil_type"] == "lowpass" or md.get("ring_current_frac", 1) < 0.5:
                 md["label"] = "k=0 (rungs in phase)"
             else:
                 rt = md.get("ring_bot_over_top", 0)

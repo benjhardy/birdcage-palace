@@ -87,7 +87,10 @@ def pair_fields(case: Path) -> dict:
             best = (bp, s)
     s = best[1]
     ax_pts = pts[:na, :2]
-    return {"case": case, "res": res, "des": des, "info": info, "phi_r": phi_r, "R": R, "N": N,
+    j0 = int(np.argmin(np.sum(ax_pts ** 2, 1)))
+    cy = a["B"][j0, 1] + s * 1j * b["B"][j0, 1]
+    theta = -float(np.angle(cy))
+    return {"theta": theta, "case": case, "res": res, "des": des, "info": info, "phi_r": phi_r, "R": R, "N": N,
             "ax_pts": ax_pts, "a": a, "b": b, "s": s, "na": na,
             "imag_frac": max(a.get("imag_frac", 0), b.get("imag_frac", 0))}
 
@@ -259,7 +262,7 @@ def render(datas, out: Path, nfr: int = 30, width_in: float = 5.4, dpi: int = 20
     else:  # square, one column per coil
         H = width_in
         L = dict(title=0.962, sub=0.924, name=0.872, where=0.845, cage=[0, 0.535, 1, 0.30],
-                 sl=[0.005, 0.235, -0.01, 0.30], f=0.205, c=0.180, mesh=0.16, cb=0.093, fs=(10.5, 7.6, 7.6, 6.6))
+                 sl=[0.005, 0.235, -0.01, 0.30], f=0.205, c=0.180, mesh=0.163, cb=0.105, fs=(10.5, 7.6, 7.6, 6.6))
     paths = []
     for fi in range(nfr):
         wt = 2 * np.pi * fi / nfr
@@ -284,8 +287,8 @@ def render(datas, out: Path, nfr: int = 30, width_in: float = 5.4, dpi: int = 20
                 a3 = fig.add_axes([x0 + c3[0] * w, c3[1], c3[2] * w, c3[3]], projection="3d")
                 a2 = fig.add_axes([x0 + s2[0], s2[1], w + s2[2], s2[3]])
             a3.set_facecolor("white")
-            draw_cage(a3, d, wt, d["cmax"], zoom=1.4 if ncol == 1 else 1.2)
-            draw_slice(a2, d, wt, width=0.006 if ncol == 1 else 0.009)
+            draw_cage(a3, d, wt + d["theta"], d["cmax"], zoom=1.4 if ncol == 1 else 1.2)
+            draw_slice(a2, d, wt + d["theta"], width=0.006 if ncol == 1 else 0.009)
             fig.text(x0 + w / 2, L["f"], fl, ha="center", fontsize=fs[2], color=INK, weight="bold")
             fig.text(x0 + w / 2, L["c"], cl, ha="center", fontsize=fs[3], color=INK2)
             fig.text(x0 + w / 2, L["mesh"], ml, ha="center", fontsize=fs[3] - 0.8, color="#8a8984")
