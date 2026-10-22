@@ -168,7 +168,7 @@ def card_resonance(by, out):
         ax.text(fc, 0.64, f"−3 dB width {bw * 1000:.0f} kHz", ha="center", fontsize=13, color=INK2,
                 bbox=dict(fc="white", ec="none", pad=1))
         fig.text(0.28 + 0.48 * i, 0.33, f"{lab} = {q:.0f}", ha="center", fontsize=46, weight="bold", color=INK)
-        fig.text(0.28 + 0.48 * i, 0.30, f"f = {fc:.2f} MHz", ha="center", fontsize=16, color=INK2)
+        fig.text(0.28 + 0.48 * i, 0.30, f"f = {fc:.2f} MHz (with copper + ESR loss)", ha="center", fontsize=16, color=INK2)
     fig.text(0.5, 0.20, f"Q_U / Q_L = {qu / ql:.1f}", ha="center", fontsize=34, weight="bold", color=INK)
     fig.text(0.5, 0.165, f"the phantom takes {100 * (1 - ql / qu):.0f} % of the power fed to the coil", ha="center", fontsize=16, color=INK2)
     fig.text(0.5, 0.075, "Curves: single-pole response from Palace's complex eigenfrequency, Q = Re f / (2 Im f).\n"
@@ -387,7 +387,7 @@ def anim_rotating(by, maps, out, nfr=36, fps=12):
             fig.text(0.26 + 0.48 * i, 0.37, f"{c['b1plus_roi_cv'] * 100:.1f} %", ha="center", fontsize=40, weight="bold", color=INK)
             fig.text(0.26 + 0.48 * i, 0.345, "ROI std/mean of |B1+|", ha="center", fontsize=14, color=INK2)
             fig.text(0.26 + 0.48 * i, 0.315, f"|B1−| / |B1+| = {c['b1minus_over_b1plus_roi'] * 100:.0f} %", ha="center", fontsize=14, color=INK2)
-            fig.text(0.26 + 0.48 * i, 0.285, f"f = {c['f_mean_mhz']:.2f} MHz", ha="center", fontsize=14, color=INK2)
+            fig.text(0.26 + 0.48 * i, 0.285, f"f = {c['f_mean_mhz']:.2f} MHz (lossless coil)", ha="center", fontsize=14, color=INK2)
         cax = fig.add_axes([0.25, 0.22, 0.5, 0.014])
         fig.colorbar(im, cax=cax, orientation="horizontal").set_label(
             "instantaneous |B_t| (µT), 1 µT mean |B1+| · same scale", fontsize=13)
