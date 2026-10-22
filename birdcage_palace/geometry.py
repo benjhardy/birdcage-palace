@@ -3,7 +3,8 @@
 Conductors are zero-thickness PEC sheets on the coil cylinder (rungs and end rings as curved strips). Every capacitor is a
 small curved patch filling a gap in a rung (low-pass, band-pass) or an end-ring segment (high-pass, band-pass); Palace
 treats each patch as a lumped element (LumpedPort with C). The domain is the inside of the RF shield (a closed PEC can by
-default) or, unshielded, an air cylinder with a first-order absorbing outer boundary. An optional phantom is a
+default) or, unshielded, an air cylinder reaching about lambda0/4 past the coil, closed by a second-order absorbing
+boundary. An optional phantom is a
 cylinder of lossy dielectric.
 
 Mesh length unit is the metre (Palace Model.L0 = 1).
@@ -22,6 +23,26 @@ ATTR_AIR, ATTR_PHANTOM = 1, 2
 ATTR_COIL, ATTR_SHIELD, ATTR_OUTER = 10, 11, 12
 ATTR_SYM = {"x": 13, "y": 14, "z": 15}   # symmetry planes x=0, y=0, z=0
 ATTR_LEG_CAP0, ATTR_RING_TOP0, ATTR_RING_BOT0 = 100, 200, 300
+
+
+C0 = 299792458.0
+
+
+def air_clearance(des: CoilDesign) -> float:
+    """Gap between the coil and the absorbing boundary of an unshielded coil: max(0.15 m, lambda0 / 4).
+
+    Measured on the 16-rung low-pass head coil at 3 T (coarse mesh, C fixed): with a first-order boundary the k = 1
+    radiation Q was 17.8 / 39.6 / 68.4 / 78.1 for air radii 0.29 / 0.45 / 0.70 / 1.0 m (frequency within 0.2 % from
+    0.45 m on); a second-order boundary at 0.70 m gave 80.9. So the boundary has to sit about a quarter wavelength
+    out, and it is second order (palace.py).
+    """
+    return max(0.15, C0 / des.f_larmor / 4)
+
+
+def air_box(des: CoilDesign) -> tuple[float, float]:
+    """Radius and length of the air cylinder of an unshielded coil (absorbing outer boundary)."""
+    R, l, c = des.radius, des.length, air_clearance(des)
+    return (des.air_radius or R + c), (des.air_length or l + 2 * c)
 
 
 def leg_angles(N: int, phi0: float = 0.0) -> list[float]:
@@ -88,7 +109,7 @@ def build(des: CoilDesign, out_dir: Path, name: str = "birdcage", verbosity: int
     if des.shield_diameter:
         Rd, Ld = des.shield_diameter / 2, des.shield_len
     else:
-        Rd, Ld = max(2.0 * R, R + 0.15), l + 0.6
+        Rd, Ld = air_box(des)
     air = occ.addCylinder(0, 0, -Ld / 2, 0, 0, Ld, Rd)
     ph_tag = None
     if des.phantom:
@@ -225,9 +246,21 @@ def build(des: CoilDesign, out_dir: Path, name: str = "birdcage", verbosity: int
         fields.append(bx)
     mn = fld.add("Min")
     fld.setNumbers(mn, "FieldsList", fields)
-    fld.setAsBackgroundMesh(mn)
+    size_fld, h_top = mn, des.h_max
+    if not des.shield_diameter:
+        # unshielded: the air box reaches about a quarter wavelength out; past 12 cm from the strips let the mesh grow
+        # to lambda0 / 12 at the absorbing boundary (Max with a ramp that is tiny near the coil keeps the fine sizes)
+        h_top = max(des.h_max, C0 / des.f_larmor / 12)
+        t3 = fld.add("Threshold")
+        fld.setNumber(t3, "InField", d1)
+        for k, v in (("SizeMin", 0.5 * min(des.h_gap, des.h_coil)), ("SizeMax", h_top), ("DistMin", 0.12),
+                     ("DistMax", 0.12 + air_clearance(des))):
+            fld.setNumber(t3, k, v)
+        size_fld = fld.add("Max")
+        fld.setNumbers(size_fld, "FieldsList", [mn, t3])
+    fld.setAsBackgroundMesh(size_fld)
     for k, v in (("Mesh.MeshSizeExtendFromBoundary", 0), ("Mesh.MeshSizeFromPoints", 0),
-                 ("Mesh.MeshSizeFromCurvature", 24), ("Mesh.MeshSizeMax", des.h_max), ("Mesh.Algorithm", 6),
+                 ("Mesh.MeshSizeFromCurvature", 24), ("Mesh.MeshSizeMax", h_top), ("Mesh.Algorithm", 6),
                  ("Mesh.Algorithm3D", 10), ("Mesh.MshFileVersion", 2.2), ("Mesh.SaveAll", 0)):
         gmsh.option.setNumber(k, v)
     gmsh.model.mesh.generate(3)

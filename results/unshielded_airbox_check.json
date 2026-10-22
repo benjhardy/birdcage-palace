@@ -1,0 +1,139 @@
+{
+ "what": "Unshielded 16-rung low-pass head coil (D 28 cm, L 25 cm), 3 T, C = 0.8807 pF (the package-test unshielded tune), coarse mesh 8/4 mm, order 1, bulk 60 mm (new default: 40 mm graded to lambda0/12). Palace eigenmode, 2 modes. Q is the radiation Q through the absorbing boundary. Simulation only; CPU shared with the loading sweep.",
+ "finding": "With the old box (0.29 m radius, 15 cm from the rungs, first order) Q was 17.8, four times too low: the boundary absorbed near field. Q settles near 80 once the boundary is about lambda0/4 out (0.70 m second order: 80.9; 1.0 m first order: 78.1); k=1 sits 1.2-1.4 % higher than with the old box and agrees within 0.3 % for boxes of 0.70 m and more.",
+ "cases": [
+  {
+   "case": "airbox_a029",
+   "air_radius_m": 0.29,
+   "air_length_m": 0.85,
+   "abc_order": 1,
+   "tets": 56968,
+   "unknowns": 72065,
+   "f_k1_mhz": [
+    127.349,
+    127.533
+   ],
+   "Q_k1": [
+    17.8,
+    17.8
+   ],
+   "wall_s": 47.6,
+   "ranks": 3,
+   "note": "old default rule max(2R, R+0.15) x (L+0.6), 1st-order ABC"
+  },
+  {
+   "case": "airbox_a045",
+   "air_radius_m": 0.45,
+   "air_length_m": 1.15,
+   "abc_order": 1,
+   "tets": 66575,
+   "unknowns": 84453,
+   "f_k1_mhz": [
+    128.988,
+    129.345
+   ],
+   "Q_k1": [
+    39.7,
+    39.5
+   ],
+   "wall_s": 63.9,
+   "ranks": 3,
+   "note": "1st-order ABC"
+  },
+  {
+   "case": "airbox_a070",
+   "air_radius_m": 0.7,
+   "air_length_m": 1.65,
+   "abc_order": 1,
+   "tets": 100344,
+   "unknowns": 126457,
+   "f_k1_mhz": [
+    128.994,
+    129.11
+   ],
+   "Q_k1": [
+    68.5,
+    68.4
+   ],
+   "wall_s": 160.4,
+   "ranks": 3,
+   "note": "1st-order ABC"
+  },
+  {
+   "case": "airbox_a100",
+   "air_radius_m": 1.0,
+   "air_length_m": 2.25,
+   "abc_order": 1,
+   "tets": 183319,
+   "unknowns": 227663,
+   "f_k1_mhz": [
+    128.815,
+    129.008
+   ],
+   "Q_k1": [
+    78.3,
+    78.0
+   ],
+   "wall_s": 502.3,
+   "ranks": 3,
+   "note": "1st-order ABC"
+  },
+  {
+   "case": "airbox_a045_o2",
+   "air_radius_m": 0.45,
+   "air_length_m": 1.15,
+   "abc_order": 2,
+   "tets": 66575,
+   "unknowns": 84453,
+   "f_k1_mhz": [
+    129.712,
+    130.071
+   ],
+   "Q_k1": [
+    43.4,
+    43.2
+   ],
+   "wall_s": 127.4,
+   "ranks": 3,
+   "note": "2nd-order ABC"
+  },
+  {
+   "case": "airbox_a070_o2",
+   "air_radius_m": 0.7,
+   "air_length_m": 1.65,
+   "abc_order": 2,
+   "tets": 100344,
+   "unknowns": 126457,
+   "f_k1_mhz": [
+    129.11,
+    129.226
+   ],
+   "Q_k1": [
+    80.9,
+    80.8
+   ],
+   "wall_s": 254.3,
+   "ranks": 3,
+   "note": "2nd-order ABC"
+  },
+  {
+   "case": "airbox_new_coarse",
+   "air_radius_m": 0.7268,
+   "air_length_m": 1.4235,
+   "abc_order": 2,
+   "tets": 101927,
+   "unknowns": 123657,
+   "f_k1_mhz": [
+    129.211,
+    129.378
+   ],
+   "Q_k1": [
+    81.2,
+    81.0
+   ],
+   "wall_s": 281.0,
+   "ranks": 3,
+   "note": "new default: gap max(0.15, lambda0/4), 2nd-order ABC, bulk mesh graded to lambda0/12"
+  }
+ ]
+}

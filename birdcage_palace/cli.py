@@ -27,6 +27,8 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
+
 from .design import CoilDesign, Phantom
 from . import ladder
 
@@ -36,9 +38,12 @@ def _design_from_args(a) -> CoilDesign:
                    gap=a.gap, coil_type=a.type, b0=a.b0, shield_diameter=None if a.shield in (0, None) else a.shield,
                    shield_length=a.shield_length, shield_ends=a.shield_ends, c_leg=a.c_leg, c_ring=a.c_ring,
                    bandpass_ratio=a.bandpass_ratio, h_coil=a.h_coil, h_gap=a.h_gap, h_max=a.h_max, order=a.order,
-                   symmetry=a.symmetry, sym_cut=a.sym_cut, sym_bc=_parse_bc(a.sym_bc), rung_offset=a.rung_offset)
+                   symmetry=a.symmetry, sym_cut=a.sym_cut, sym_bc=_parse_bc(a.sym_bc), rung_offset=a.rung_offset,
+                   copper_sigma=a.copper_sigma or None, esr=a.esr or None,
+                   air_radius=a.air_radius, air_length=a.air_length)
     if a.phantom:
-        d.phantom = Phantom(radius=a.phantom_radius, length=a.phantom_length, eps_r=a.phantom_eps, sigma=a.phantom_sigma)
+        d.phantom = Phantom(radius=a.phantom_radius, length=a.phantom_length, eps_r=a.phantom_eps, sigma=a.phantom_sigma,
+                            loss_model=a.phantom_loss_model)
     return d
 
 
@@ -92,11 +97,34 @@ def cmd_variant(a) -> None:
         des.order = a.order
     if a.c_rungs:
         des.c_leg_rungs = [float(x) for x in json.loads(Path(a.c_rungs).read_text())]
+    _apply_material_args(des, a)
     des.validate()
     des.to_json(out / "design.json")
     cfg = json.loads((src / "config.json").read_text())
-    write_config(des, out, n_modes=a.modes or cfg["Solver"]["Eigenmode"]["N"], target_hz=cfg["Solver"]["Eigenmode"]["Target"] * 1e9)
-    print(f"variant {out}: sym_bc={ {k: des.sym_bc[k] for k in des.planes} } C_leg={_pf(des.c_leg)} order={des.order}")
+    write_config(des, out, n_modes=a.modes or cfg["Solver"]["Eigenmode"]["N"], target_hz=cfg["Solver"]["Eigenmode"]["Target"] * 1e9,
+                 h_plane=a.probe_h)
+    ph = des.phantom
+    print(f"variant {out}: sym_bc={ {k: des.sym_bc[k] for k in des.planes} } C_leg={_pf(des.c_leg)} order={des.order}"
+          + (f" phantom eps_r={ph.eps_r:g} sigma={ph.sigma:g} ({ph.loss_model})" if ph else "")
+          + (f" copper={des.copper_sigma:g} S/m" if des.copper_sigma else "") + (f" ESR={des.esr:g} ohm" if des.esr else ""))
+
+
+def _apply_material_args(des: CoilDesign, a) -> None:
+    """Phantom material and coil-loss options shared by `variant` and `load` (the phantom geometry is in the mesh)."""
+    if any(getattr(a, k, None) is not None for k in ("phantom_eps", "phantom_sigma", "phantom_loss_model")):
+        if des.phantom is None:
+            raise SystemExit("this case has no phantom region in its mesh: build it with --phantom (e.g. --phantom-eps 1 "
+                             "--phantom-sigma 0 for an air-filled region), then change the material here")
+        if a.phantom_eps is not None:
+            des.phantom.eps_r = a.phantom_eps
+        if a.phantom_sigma is not None:
+            des.phantom.sigma = a.phantom_sigma
+        if a.phantom_loss_model is not None:
+            des.phantom.loss_model = a.phantom_loss_model
+    if getattr(a, "copper_sigma", None) is not None:
+        des.copper_sigma = a.copper_sigma or None
+    if getattr(a, "esr", None) is not None:
+        des.esr = a.esr or None
 
 
 def cmd_portcase(a) -> None:
@@ -219,6 +247,170 @@ def tune_summary(des: CoilDesign, res: dict, hist: list) -> dict:
             "palace_wall_s": [h["solve"].get("wall_s") for h in hist]}
 
 
+def _sub(a, **kw):
+    b = argparse.Namespace(**vars(a))
+    for k, v in kw.items():
+        setattr(b, k, v)
+    return b
+
+
+def _k1_q(res: dict | None) -> float | None:
+    if not res:
+        return None
+    hp = res.get("homogeneous_pair") or {}
+    qs = [m["Q"] for m in res["modes"] if m["m"] in hp.get("m", [])]
+    return float(np.mean(qs)) if qs else None
+
+
+def _single_mode_q(case: Path) -> tuple[float, float]:
+    """f (MHz) and Q of the one mode of a coil-loss solve (first row of eig.csv)."""
+    from .modes import _read_csv
+    _, d = _read_csv(case / "postpro" / "eig.csv")
+    return float(d[0, 1] * 1e3), float(d[0, 3])
+
+
+def _loss_variant(src: Path, out: Path, des: CoilDesign, n_modes: int, target_hz: float | None) -> None:
+    import shutil
+    from .palace import write_config
+    out.mkdir(parents=True, exist_ok=True)
+    info = json.loads((src / "build.json").read_text())
+    for f in (info["mesh"], "build.json", "surfaces.json", "analytic.json"):
+        if (src / f).exists() and not (out / f).exists():
+            shutil.copy(src / f, out / f)
+    des.validate()
+    des.to_json(out / "design.json")
+    write_config(des, out, n_modes=n_modes, target_hz=target_hz)
+
+
+def cmd_load(a) -> dict:
+    """Fill the phantom region of a tuned case with a load and solve it on the same mesh (C not retuned).
+
+    1. loaded, lossless coil: k = 1 frequency and shift, phantom-only Q, quadrature B1+ (modes.json in <out>/loaded)
+    2. with --esr / --copper-sigma: the coil losses added, loaded and unloaded (one mode near f0 each): Q_L, Q_U, Q_U/Q_L
+    Writes <out>/load_summary.json and adds it as "loaded" to the case's tune_summary.json.
+    """
+    case = Path(a.case)
+    out = Path(a.out) if a.out else case.parent / (case.name + "_loaded")
+    des0 = CoilDesign.from_json(case / "design.json")
+    if des0.phantom is None:
+        raise SystemExit("load needs a phantom region in the mesh: build with --phantom --phantom-eps 1 --phantom-sigma 0")
+    cfg = json.loads((case / "config.json").read_text())
+    n_modes = a.modes or min(cfg["Solver"]["Eigenmode"]["N"], 4)
+    target = cfg["Solver"]["Eigenmode"]["Target"] * 1e9
+    unl = json.loads((case / "modes.json").read_text()) if (case / "modes.json").exists() else None
+    des = CoilDesign.from_json(case / "design.json")
+    des.phantom.eps_r, des.phantom.sigma = a.phantom_eps, a.phantom_sigma
+    des.copper_sigma = des.esr = None
+    runs = {}
+    _loss_variant(case, out / "loaded", des, n_modes, target)
+    cmd_solve(_sub(a, case=str(out / "loaded")))
+    res = cmd_modes(_sub(a, case=str(out / "loaded"), no_figs=True, figdir=None))
+    hp = res.get("homogeneous_pair") or {}
+    runs["loaded"] = json.loads((out / "loaded" / "solve_stats.json").read_text())
+    f_u = ((unl or {}).get("homogeneous_pair") or {}).get("f_mean_mhz")
+    f_l = hp.get("f_mean_mhz")
+    summ = {"phantom": {"radius_m": des.phantom.radius, "length_m": des.phantom.length, "eps_r": a.phantom_eps,
+                        "sigma_s_per_m": a.phantom_sigma},
+            "c_leg_pf": None if des.c_leg is None else des.c_leg * 1e12,
+            "c_ring_pf": None if des.c_ring is None else des.c_ring * 1e12,
+            "f_k1_unloaded_mhz": f_u, "f_k1_loaded_mhz": f_l,
+            "f_shift_rel": f_l / f_u - 1 if (f_u and f_l) else None,
+            "Q_phantom": _k1_q(res), "Q_unloaded_lossless_coil": _k1_q(unl),
+            "b1plus_roi_cv": hp.get("b1plus_roi_cv"), "b1minus_over_b1plus_roi": hp.get("b1minus_over_b1plus_roi"),
+            "b1plus_roi_cv_unloaded": ((unl or {}).get("homogeneous_pair") or {}).get("b1plus_roi_cv")}
+    if a.esr or a.copper_sigma:
+        # one mode near f0: the nonlinear (copper) eigensolve can stall on strongly damped phantom modes
+        for tag, eps, sig in (("loaded_coil_loss", a.phantom_eps, a.phantom_sigma), ("unloaded_coil_loss", 1.0, 0.0)):
+            d = CoilDesign.from_json(case / "design.json")
+            d.phantom.eps_r, d.phantom.sigma = eps, sig
+            d.esr, d.copper_sigma = a.esr or None, a.copper_sigma or None
+            _loss_variant(case, out / tag, d, 1, 0.9 * d.f_larmor)
+            cmd_solve(_sub(a, case=str(out / tag)))
+            runs[tag] = json.loads((out / tag / "solve_stats.json").read_text())
+        fl, ql = _single_mode_q(out / "loaded_coil_loss")
+        fu, qu = _single_mode_q(out / "unloaded_coil_loss")
+        summ.update(coil_loss={"esr_ohm": a.esr, "copper_sigma_s_per_m": a.copper_sigma,
+                               "note": "copper on strips and shield as a Palace Conductivity boundary (one face of each "
+                                       "strip sheet: an upper bound on the strip loss); ESR as the parallel R at f0"},
+                    Q_U=qu, Q_L=ql, QU_over_QL=qu / ql, f_k1_loaded_lossy_mhz=fl, f_k1_unloaded_lossy_mhz=fu)
+    summ["solves"] = runs
+    (out / "load_summary.json").write_text(json.dumps(summ, indent=1))
+    ts = case / "tune_summary.json"
+    if ts.exists():
+        t = json.loads(ts.read_text())
+        t["loaded"] = summ
+        ts.write_text(json.dumps(t, indent=1))
+    print("load summary:", json.dumps({k: v for k, v in summ.items() if k != "solves"}), flush=True)
+    return summ
+
+
+def _f_at_c(hist: list, c: float) -> float | None:
+    """k=1 frequency at capacitor c from a tune history (1/f^2 linear in C; with one point, 1/f^2 proportional to C)."""
+    x = [h["c_leg"] or h["c_ring"] for h in hist]
+    y = [1 / h["f_k1_mhz"] ** 2 for h in hist]
+    if not x:
+        return None
+    if len(set(x)) >= 2:
+        k, b = np.polyfit(x, y, 1)
+        return float((k * c + b) ** -0.5)
+    return float((y[0] * c / x[0]) ** -0.5)
+
+
+def cmd_compare(a) -> dict:
+    """Compare tuned cases (e.g. with and without the shield): k=1 shift, tuned C, Q, B1 homogeneity."""
+    rows = []
+    for c in a.cases:
+        case = Path(c)
+        des = CoilDesign.from_json(case / "design.json")
+        ts = json.loads((case / "tune_summary.json").read_text())
+        hist = json.loads((case / "tune_history.json").read_text())
+        res = json.loads((case / "modes.json").read_text())
+        q = _k1_q(res)
+        rows.append({"case": str(case), "shield": "none (absorbing boundary)" if not des.shield_diameter else
+                     f"{des.shield_diameter * 100:g} cm, ends {des.shield_ends}",
+                     "c_first_guess_pf": ts.get("c_leg_first_guess_pf") or ts.get("c_ring_first_guess_pf"),
+                     "f_k1_at_first_guess_mhz": ts.get("f_k1_at_first_guess_mhz"),
+                     "c_tuned_pf": ts.get("c_leg_pf") or ts.get("c_ring_pf"), "f_k1_tuned_mhz": ts.get("f_k1_mhz"),
+                     "Q_k1": None if q is None or q > 1e9 else q,
+                     "Q_note": "radiation Q (absorbing outer boundary)" if not des.shield_diameter else
+                               "lossless conductors in a closed shield: no loss, Q infinite",
+                     "b1plus_roi_cv": ts.get("b1plus_roi_cv"), "roi_bt_cv": ts.get("roi_bt_cv"),
+                     "b1minus_over_b1plus_roi": ts.get("b1minus_over_b1plus_roi"), "solves": ts.get("solves"),
+                     "palace_wall_s": ts.get("palace_wall_s"), "_hist": hist, "loaded": ts.get("loaded")})
+    out = {"what": "birdcage compare (simulation only)", "cases": [{k: v for k, v in r.items() if k != "_hist"} for r in rows]}
+    if len(rows) == 2:
+        a0, b0 = rows
+        cref = a0["c_tuned_pf"] * 1e-12
+        fb = _f_at_c(b0["_hist"], cref)
+        out["k1_shift"] = {
+            "what": f"k=1 of case 2 at case 1's tuned C ({a0['c_tuned_pf']:.4f} pF), from case 2's 1/f^2 vs C fit",
+            "f_case1_mhz": a0["f_k1_tuned_mhz"], "f_case2_at_same_c_mhz": fb,
+            "shift_rel": None if fb is None else fb / a0["f_k1_tuned_mhz"] - 1}
+        out["c_tuned_ratio_case2_over_case1"] = b0["c_tuned_pf"] / a0["c_tuned_pf"]
+    def fmt(v, f):
+        if v is None:
+            return "-"
+        return format(v, f) if f else str(v)
+    lines = ["| | " + " | ".join(Path(r["case"]).name for r in rows) + " |", "|---|" + "---|" * len(rows)]
+    for lab, key, f in (("shield", "shield", ""), ("C first guess (pF)", "c_first_guess_pf", ".3f"),
+                        ("k=1 at first guess (MHz)", "f_k1_at_first_guess_mhz", ".2f"), ("tuned C (pF)", "c_tuned_pf", ".4f"),
+                        ("k=1 tuned (MHz)", "f_k1_tuned_mhz", ".3f"), ("Q of k=1 (Palace)", "Q_k1", ".0f"),
+                        ("quadrature B1+ ROI std/mean", "b1plus_roi_cv", ".2%"),
+                        ("B1- / B1+ in the ROI", "b1minus_over_b1plus_roi", ".2%"), ("solves", "solves", "d")):
+        lines.append(f"| {lab} | " + " | ".join(fmt(r[key], f) for r in rows) + " |")
+    ks = out.get("k1_shift")
+    if ks and ks["shift_rel"] is not None:
+        lines.append(f"\nk=1 shift at the same C ({rows[0]['c_tuned_pf']:.4f} pF): {ks['f_case1_mhz']:.3f} -> "
+                     f"{ks['f_case2_at_same_c_mhz']:.3f} MHz ({ks['shift_rel'] * 100:+.2f} %).")
+    out["table_md"] = "\n".join(lines)
+    o = Path(a.out)
+    o.parent.mkdir(parents=True, exist_ok=True)
+    o.write_text(json.dumps(out, indent=1))
+    o.with_suffix(".md").write_text("# Comparison (simulation only)\n\n" + out["table_md"] + "\n")
+    print(out["table_md"], flush=True)
+    return out
+
+
 def load_spec(path) -> dict:
     """Build options from a JSON spec: either flat, or the web builder's {"build": {...}} form. Keys are CLI option
     names with - or _ (leg-width or leg_width)."""
@@ -257,6 +449,14 @@ def main(argv=None) -> None:
     a.fn(a)
 
 
+def _material_options(p) -> None:
+    p.add_argument("--phantom-eps", type=float, default=None, help="phantom eps_r (the case must have a phantom region)")
+    p.add_argument("--phantom-sigma", type=float, default=None, help="phantom conductivity, S/m")
+    p.add_argument("--phantom-loss-model", choices=["conductivity", "losstan"], default=None)
+    p.add_argument("--copper-sigma", type=float, default=None, help="S/m on strips and shield; 0 = PEC")
+    p.add_argument("--esr", type=float, default=None, help="ohm per capacitor; 0 = ideal")
+
+
 def _parser() -> argparse.ArgumentParser:
     import os
     from . import __version__
@@ -277,6 +477,10 @@ def _parser() -> argparse.ArgumentParser:
     b.add_argument("--shield", type=float, default=0.34, help="shield diameter, m (0 = unshielded, absorbing boundary)")
     b.add_argument("--shield-length", type=float, default=None)
     b.add_argument("--shield-ends", choices=["pec", "absorbing"], default="pec")
+    b.add_argument("--air-radius", type=float, default=None,
+                   help="unshielded: radius of the air cylinder, m (default R + max(0.15 m, lambda0/4))")
+    b.add_argument("--air-length", type=float, default=None,
+                   help="unshielded: length of the air cylinder, m (default L + 2 max(0.15 m, lambda0/4))")
     b.add_argument("--c-leg", type=float, default=None, help="F; default from the ladder model")
     b.add_argument("--c-ring", type=float, default=None, help="F; default from the ladder model")
     b.add_argument("--bandpass-ratio", type=float, default=1.0)
@@ -285,6 +489,10 @@ def _parser() -> argparse.ArgumentParser:
     b.add_argument("--phantom-length", type=float, default=0.20)
     b.add_argument("--phantom-eps", type=float, default=78.0)
     b.add_argument("--phantom-sigma", type=float, default=0.6)
+    b.add_argument("--phantom-loss-model", choices=["conductivity", "losstan"], default="conductivity",
+                   help="phantom loss as a conductivity, or as the loss tangent sigma/(w0 eps0 eps_r) (linear eigenproblem)")
+    b.add_argument("--copper-sigma", type=float, default=None, help="S/m: copper surface loss on strips and shield (default PEC)")
+    b.add_argument("--esr", type=float, default=None, help="ohm: series resistance of every capacitor (default ideal)")
     b.add_argument("--h-coil", type=float, default=0.005)
     b.add_argument("--h-gap", type=float, default=0.0025)
     b.add_argument("--h-max", type=float, default=0.035)
@@ -307,6 +515,8 @@ def _parser() -> argparse.ArgumentParser:
     v.add_argument("--order", type=int, default=None)
     v.add_argument("--modes", type=int, default=None)
     v.add_argument("--c-rungs", default=None, help="JSON file with one capacitor value (F) per rung")
+    _material_options(v)
+    v.add_argument("--probe-h", type=float, default=0.006, help="probe spacing on the axial and coronal planes, m")
     v.set_defaults(fn=cmd_variant)
     pc = sub.add_parser("portcase", help="copy a built case as a driven port-tuning case (gaps -> resistive ports)")
     pc.add_argument("--case", required=True)
@@ -338,6 +548,23 @@ def _parser() -> argparse.ArgumentParser:
         s.add_argument("--wsl-distro", default=os.environ.get("BIRDCAGE_WSL_DISTRO", "Ubuntu-24.04"),
                        help="WSL distribution that runs Palace when called from Windows")
         s.set_defaults(fn=fn)
+        if name == "tune":
+            tune_p = s
+    ld = sub.add_parser("load", help="fill the phantom region of a tuned case with a load (same mesh, C not retuned)")
+    for act in tune_p._actions:  # same solver options as tune
+        if act.dest not in ("help", "fn") and act.option_strings:
+            ld._add_action(act)
+    ld.add_argument("--out", default=None, help="default <case>_loaded")
+    ld.add_argument("--phantom-eps", type=float, default=78.0)
+    ld.add_argument("--phantom-sigma", type=float, default=0.6)
+    ld.add_argument("--esr", type=float, default=0.68, help="ohm per capacitor for Q_U and Q_L (0 = skip the coil-loss solves)")
+    ld.add_argument("--copper-sigma", type=float, default=5.8e7, help="S/m on strips and shield for Q_U and Q_L (0 = PEC)")
+    ld.add_argument("--modes", type=int, default=None)
+    ld.set_defaults(fn=cmd_load)
+    cp = sub.add_parser("compare", help="compare tuned cases (e.g. with and without the shield)")
+    cp.add_argument("--cases", nargs="+", required=True)
+    cp.add_argument("--out", default="compare.json")
+    cp.set_defaults(fn=cmd_compare)
     return ap
 
 

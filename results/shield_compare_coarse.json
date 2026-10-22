@@ -1,0 +1,59 @@
+{
+ "what": "birdcage compare from the builder package test, 21 Oct 2026: page settings LP16 D28 L25 3 T, coarse mesh (8/4/40 mm), order 1, Both; fresh venv, 3 MPI ranks, CPU shared with the loading sweep. run.sh total 932 s. Simulation only.",
+ "cases": [
+  {
+   "case": "lp16_d28_3T_coarse",
+   "shield": "34 cm, ends pec",
+   "c_first_guess_pf": 2.8070332255500423,
+   "f_k1_at_first_guess_mhz": 112.97636553960001,
+   "c_tuned_pf": 1.8634700492601737,
+   "f_k1_tuned_mhz": 127.7142316467,
+   "Q_k1": null,
+   "Q_note": "lossless conductors in a closed shield: no loss, Q infinite",
+   "b1plus_roi_cv": 0.02897360630070002,
+   "roi_bt_cv": [
+    0.04552243314663677,
+    0.04740454013043632
+   ],
+   "b1minus_over_b1plus_roi": 0.04318109506125612,
+   "solves": 3,
+   "palace_wall_s": [
+    37.0,
+    37.4,
+    37.4
+   ],
+   "loaded": null
+  },
+  {
+   "case": "lp16_d28_3T_coarse_noshield",
+   "shield": "none (absorbing boundary)",
+   "c_first_guess_pf": 1.8036312207148277,
+   "f_k1_at_first_guess_mhz": 107.4936308559,
+   "c_tuned_pf": 0.9369492657615646,
+   "f_k1_tuned_mhz": 127.70611045014999,
+   "Q_k1": 83.037800043925,
+   "Q_note": "radiation Q (absorbing outer boundary)",
+   "b1plus_roi_cv": 0.02438308379336651,
+   "roi_bt_cv": [
+    0.0374479670409074,
+    0.037576523320716634
+   ],
+   "b1minus_over_b1plus_roi": 0.034831888310966334,
+   "solves": 3,
+   "palace_wall_s": [
+    234.7,
+    268.2,
+    280.3
+   ],
+   "loaded": null
+  }
+ ],
+ "k1_shift": {
+  "what": "k=1 of case 2 at case 1's tuned C (1.8635 pF), from case 2's 1/f^2 vs C fit",
+  "f_case1_mhz": 127.7142316467,
+  "f_case2_at_same_c_mhz": 106.43027914844231,
+  "shift_rel": -0.16665294246248274
+ },
+ "c_tuned_ratio_case2_over_case1": 0.5027981351959737,
+ "table_md": "| | lp16_d28_3T_coarse | lp16_d28_3T_coarse_noshield |\n|---|---|---|\n| shield | 34 cm, ends pec | none (absorbing boundary) |\n| C first guess (pF) | 2.807 | 1.804 |\n| k=1 at first guess (MHz) | 112.98 | 107.49 |\n| tuned C (pF) | 1.8635 | 0.9369 |\n| k=1 tuned (MHz) | 127.714 | 127.706 |\n| Q of k=1 (Palace) | - | 83 |\n| quadrature B1+ ROI std/mean | 2.90% | 2.44% |\n| B1- / B1+ in the ROI | 4.32% | 3.48% |\n| solves | 3 | 3 |\n\nk=1 shift at the same C (1.8635 pF): 127.714 -> 106.430 MHz (-16.67 %)."
+}

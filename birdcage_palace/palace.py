@@ -55,37 +55,82 @@ def symmetry_reps(points: list, planes: list[str]) -> tuple[list, list[int], lis
     return reps, rep_index, flips
 
 
+EPS0 = 8.8541878128e-12
+
+
+def materials(des: CoilDesign, attrs: dict) -> list:
+    """Palace materials: air, plus the phantom with its loss as a conductivity or as the equivalent loss tangent."""
+    mats = [{"Attributes": [attrs["air"]], "Permittivity": 1.0, "Permeability": 1.0}]
+    if attrs.get("phantom"):
+        p = des.phantom
+        m = {"Attributes": [attrs["phantom"]], "Permittivity": p.eps_r, "Permeability": 1.0}
+        if p.sigma > 0:
+            if p.loss_model == "losstan":
+                f = p.f_ref or des.f_larmor
+                m["LossTan"] = p.sigma / (2 * np.pi * f * EPS0 * p.eps_r)
+            else:
+                m["Conductivity"] = p.sigma
+        mats.append(m)
+    return mats
+
+
+def metal_boundaries(des: CoilDesign, attrs: dict) -> tuple[list, list]:
+    """PEC attributes and (with copper_sigma) Palace Conductivity boundaries for the strips and the shield.
+
+    The strips are internal sheets: Palace applies one surface impedance (1+i)/(sigma delta) to the sheet, i.e. the
+    loss of the whole strip current on one face. A real strip shares its current between both faces, so this is an
+    upper bound on the strip loss (at most 2x). The shield is an outer boundary (External: true).
+    """
+    pec, cond = [], []
+    if des.copper_sigma:
+        cond.append({"Attributes": [attrs["coil"]], "Conductivity": des.copper_sigma})
+        if attrs.get("shield"):
+            cond.append({"Attributes": [attrs["shield"]], "Conductivity": des.copper_sigma, "External": True})
+    else:
+        pec = [attrs["coil"]] + ([attrs["shield"]] if attrs.get("shield") else [])
+    return pec, cond
+
+
 def write_config(des: CoilDesign, case: Path, n_modes: int = 20, target_hz: float | None = None,
-                 tol: float = 1e-8, save: int = 0, probes: bool = True) -> dict:
+                 tol: float = 1e-8, save: int = 0, probes: bool = True, h_plane: float = 0.006) -> dict:
     case = Path(case)
     info = json.loads((case / "build.json").read_text())
     a = info["attrs"]
-    mats = [{"Attributes": [a["air"]], "Permittivity": 1.0, "Permeability": 1.0}]
-    if a.get("phantom"):
-        p = des.phantom
-        mats.append({"Attributes": [a["phantom"]], "Permittivity": p.eps_r, "Permeability": 1.0, "Conductivity": p.sigma})
-    pec = [a["coil"]] + ([a["shield"]] if a.get("shield") else [])
+    mats = materials(des, a)
+    pec, cond = metal_boundaries(des, a)
     # Symmetry planes: PEC is set explicitly; PMC (tangential H = 0) is Palace's natural boundary, so a PMC plane is
     # simply left out of the boundary list.
     sym = a.get("sym") or {}
     pec += [sym[ax] for ax in sorted(sym) if des.sym_bc.get(ax) == "pec"]
     bnd = {"PEC": {"Attributes": pec}}
+    if cond:
+        bnd["Conductivity"] = cond
     if a.get("absorbing"):
-        bnd["Absorbing"] = {"Attributes": [a["absorbing"]], "Order": 1}
+        bnd["Absorbing"] = {"Attributes": [a["absorbing"]], "Order": 2}  # 2nd order: see geometry.air_clearance
     lp = []
     for i, p in enumerate(info["ports"], start=1):
         c = des.c_leg if p["kind"] == "leg" else des.c_ring
         if p["kind"] == "leg" and des.c_leg_rungs:
             c = des.c_leg_rungs[p["n"]]
-        c = c * p.get("c_scale", 1.0)
-        lp.append({"Index": i, "Attributes": [p["attr"]], "Direction": p["dir"], "C": c})
+        el = {"Index": i, "Attributes": [p["attr"]], "Direction": p["dir"], "C": c * p.get("c_scale", 1.0)}
+        if des.esr:
+            # series ESR -> parallel R at w0 (exact at w0); a cut element keeps the per-square value: R / c_scale
+            w0 = 2 * np.pi * des.f_larmor
+            qc = 1 / (w0 * c * des.esr)
+            el["R"] = des.esr * (1 + qc * qc) / p.get("c_scale", 1.0)
+        lp.append(el)
     bnd["LumpedPort"] = lp
     if target_hz is None:  # search from well below the lowest mode we care about
         target_hz = 0.55 * des.f_larmor if des.coil_type == "lowpass" else 0.25 * des.f_larmor
+        if a.get("absorbing"):
+            # with an absorbing boundary a low target sits among strongly damped box modes and Krylov-Schur stalls
+            # (unshielded LP16 at 0.55 f0: no mode converged in 10 restarts; at 0.9 f0: 254 s). 0.75 f0 still catches
+            # a k = 1 that the first guess puts 25 % low.
+            target_hz = 0.75 * des.f_larmor
     domains = {"Materials": mats}
     pts = None
     if probes:
-        pts = probe_points(des)
+        pts = probe_points(des, h_plane=h_plane)
         allp = pts["axial"] + pts["coronal"] + pts["roi"]
         meta = {k: len(v) for k, v in pts.items()} | {"points": allp}
         solve_pts = allp
@@ -95,6 +140,12 @@ def write_config(des: CoilDesign, case: Path, n_modes: int = 20, target_hz: floa
                      "sym_bc": {ax: des.sym_bc[ax] for ax in des.planes}}
         domains["Postprocessing"] = {"Probe": [{"Index": i + 1, "Center": p} for i, p in enumerate(solve_pts)]}
         (case / "probes.json").write_text(json.dumps(meta))
+    if a.get("absorbing"):
+        # An absorbing boundary adds strongly damped "box" modes (Q < 1) that the Krylov-Schur solver converges
+        # slowly: in the unshielded package test a 6-mode solve found the k = 1 pair in 2 restarts and then spent
+        # 20+ min (and once 48 min) on the next modes. Ask for the k = 1 pair only, at 1e-6 (plenty for f and Q).
+        tol = max(tol, 1e-6)
+        n_modes = min(n_modes, 2)
     cfg = {
         "Problem": {"Type": "Eigenmode", "Verbose": 1, "Output": "postpro"},
         "Model": {"Mesh": info["mesh"], "L0": 1.0},
@@ -163,16 +214,15 @@ def write_driven_config(des: CoilDesign, case: Path, f_min_hz: float = 100e6, f_
     case = Path(case)
     info = json.loads((case / "build.json").read_text())
     a = info["attrs"]
-    mats = [{"Attributes": [a["air"]], "Permittivity": 1.0, "Permeability": 1.0}]
-    if a.get("phantom"):
-        p = des.phantom
-        mats.append({"Attributes": [a["phantom"]], "Permittivity": p.eps_r, "Permeability": 1.0, "Conductivity": p.sigma})
-    pec = [a["coil"]] + ([a["shield"]] if a.get("shield") else [])
+    mats = materials(des, a)
+    pec, cond = metal_boundaries(des, a)
     sym = a.get("sym") or {}
     pec += [sym[ax] for ax in sorted(sym) if des.sym_bc.get(ax) == "pec"]
     bnd = {"PEC": {"Attributes": pec}}
+    if cond:
+        bnd["Conductivity"] = cond
     if a.get("absorbing"):
-        bnd["Absorbing"] = {"Attributes": [a["absorbing"]], "Order": 1}
+        bnd["Absorbing"] = {"Attributes": [a["absorbing"]], "Order": 2}  # 2nd order: see geometry.air_clearance
     bnd["LumpedPort"] = [{"Index": i, "Attributes": [p["attr"]], "Direction": p["dir"],
                           "R": r_ref / p.get("c_scale", 1.0), "Excitation": i}
                          for i, p in enumerate(info["ports"], start=1)]

@@ -14,6 +14,11 @@ class Phantom:
     length: float = 0.20          # m
     eps_r: float = 78.0           # saline-like at 128 MHz
     sigma: float = 0.6            # S/m
+    # How Palace sees the loss: "conductivity" (sigma as a conductivity: damping term, quadratic eigenproblem) or
+    # "losstan" (the same loss as a loss tangent tan d = sigma / (2 pi f_ref eps0 eps_r), exact at f_ref: the
+    # eigenproblem stays linear, so the shift-and-invert solve is a plain direct solve).
+    loss_model: str = "conductivity"
+    f_ref: float | None = None    # Hz, frequency of the loss-tangent conversion; None = the Larmor frequency
 
 
 @dataclass
@@ -29,6 +34,10 @@ class CoilDesign:
     shield_diameter: float | None = 0.34   # m; None = unshielded (absorbing outer boundary)
     shield_length: float | None = None     # m; default length + 0.20
     shield_ends: str = "pec"      # pec (closed can) | absorbing
+    # unshielded only: air cylinder closed by a second-order absorbing boundary. Default (None): a gap of
+    # max(0.15 m, lambda0 / 4) around the coil, radially and past each end-ring centreline (geometry.air_clearance)
+    air_radius: float | None = None
+    air_length: float | None = None
     c_leg: float | None = None    # F, capacitor in each rung (lowpass/bandpass); None = analytic first guess
     c_ring: float | None = None   # F, capacitor in each end-ring segment (highpass/bandpass)
     bandpass_ratio: float = 1.0   # bandpass only: c_ring / c_leg for the first guess
@@ -45,6 +54,11 @@ class CoilDesign:
     sym_bc: dict = field(default_factory=lambda: {"x": "pec", "y": "pmc", "z": "pec"})
     rung_offset: float | None = None  # rad, angle of rung 0; None = 0, or pi/N when sym_cut == "between" and symmetric
     c_leg_rungs: list | None = None   # F per rung (full-coil rung index), overrides c_leg; for asymmetric tunings
+    # coil losses (None = lossless): copper surface impedance on the strips and the shield (Palace Conductivity
+    # boundary, frequency dependent: nonlinear eigensolve), and a series ESR per capacitor (entered in Palace as the
+    # equivalent parallel R at the Larmor frequency, R_p = ESR (1 + Q_c^2), Q_c = 1 / (w0 C ESR))
+    copper_sigma: float | None = None  # S/m, e.g. 5.8e7
+    esr: float | None = None           # ohm, e.g. 0.68
     notes: dict = field(default_factory=dict)
 
     @property
@@ -80,6 +94,8 @@ class CoilDesign:
             raise ValueError("shield must clear the coil")
         if self.leg_width * self.legs >= 0.8 * 3.14159 * self.diameter:
             raise ValueError("rungs overlap")
+        if self.phantom is not None and self.phantom.loss_model not in ("conductivity", "losstan"):
+            raise ValueError("phantom loss_model must be conductivity or losstan")
         if self.symmetry not in ("none", "half", "quarter", "eighth", "zhalf"):
             raise ValueError("symmetry must be none, half, quarter, eighth or zhalf")
         if self.symmetry != "none":

@@ -3,7 +3,8 @@
 Project page: https://benjhardy.github.io/projects/birdcage-palace/ · part of [benjhardy.github.io](https://benjhardy.github.io)
 
 Live builder: https://benjhardy.github.io/birdcage-builder/ (set the specs in the browser, see the ladder-model spectrum,
-and download a package that builds, solves and tunes the coil with this repo; source in [`web/`](web/birdcage-builder/index.html)).
+and download a package that builds, solves and tunes the coil with this repo, with or without the shield or both, and
+optionally a loaded run; source in [`web/`](web/birdcage-builder/index.html)).
 
 An open-source, scriptable builder for MRI birdcage RF coils. It sizes the capacitors with a ladder-network model,
 builds the coil in [Gmsh](https://gmsh.info), solves the full-wave eigenmodes with the
@@ -180,6 +181,149 @@ separate. That is the familiar 3 T head-imaging inhomogeneity, which the empty-c
 tolerance 1e-6); with 12 modes the quadratic eigenproblem converged too slowly to be practical here.
 
 ![Quadrature B1+ unloaded vs phantom-loaded](docs/img/loaded_b1plus.png)
+
+## With or without the shield
+
+Simulation only. `birdcage build --shield 0` drops the RF shield: the coil then sits in an air cylinder closed by a
+second-order absorbing boundary, the eigenproblem turns complex and Palace reports the radiation Q of each mode. The
+builder page offers the choice in its last step: **with shield**, **without shield**, or **both**, which builds,
+solves and tunes the two cases one after the other and then runs `birdcage compare`.
+
+**Air box.** The boundary has to sit about a quarter wavelength out. The first rule (radius max(2R, R + 15 cm),
+coil length + 60 cm, first order) put it 15 cm from the rungs and absorbed near field: the radiation Q came out four
+times too low. Coarse mesh, order 1, C = 0.8807 pF, k = 1 pair
+([`results/unshielded_airbox_check.json`](results/unshielded_airbox_check.json)):
+
+| air cylinder, radius × length (m) | boundary order | k = 1 (MHz) | Q of k = 1 |
+|---|---|---|---|
+| 0.29 × 0.85 (first rule) | 1 | 127.35 / 127.53 | 17.8 |
+| 0.45 × 1.15 | 1 | 128.99 / 129.35 | 39.6 |
+| 0.70 × 1.65 | 1 | 128.99 / 129.11 | 68.4 |
+| 1.00 × 2.25 | 1 | 128.82 / 129.01 | 78.1 |
+| 0.45 × 1.15 | 2 | 129.71 / 130.07 | 43.3 |
+| 0.70 × 1.65 | 2 | 129.11 / 129.23 | 80.9 |
+| 0.73 × 1.42 (new default) | 2 | 129.21 / 129.38 | 81.1 |
+
+The default is now a gap of max(15 cm, λ0/4) around the coil, radially and past each end ring (0.587 m at 3 T), a
+second-order boundary, and a bulk mesh that grows from h_max to λ0/12 between 12 cm from the strips and the boundary,
+so the larger box costs 102 k tetrahedra on the coarse preset instead of 89 k. `--air-radius` and `--air-length`
+override it. With an absorbing boundary the solver asks for the k = 1 pair only (2 modes, tolerance 1e-6) and starts
+its search at 0.75 f0: the boundary adds strongly damped box modes, and a 6-mode solve once spent 48 min on them after
+it had found k = 1 in two restarts.
+
+**Package test ("Both")**, from the page's zip in a fresh venv: 16-rung low-pass, 28 cm, 3 T, coarse mesh, order 1,
+3 MPI ranks on a CPU shared with the loading sweep below; run.sh took 15.5 min in all
+([`results/shield_compare_coarse.json`](results/shield_compare_coarse.json)):
+
+| | with shield (34 cm can) | without shield |
+|---|---|---|
+| ladder first guess, C per rung | 2.807 pF | 1.804 pF |
+| Palace k = 1 at the first guess | 112.98 MHz | 107.49 MHz |
+| tuned C (3 solves each) | 1.8635 pF → 127.714 MHz | 0.9369 pF → 127.706 MHz |
+| Q of k = 1 | ∞ (lossless conductors, closed can) | 83 (radiation) |
+| quadrature B1+, ROI std/mean | 2.90 % | 2.44 % |
+| Palace time per solve | 37 s (92 k unknowns) | 235–280 s (124 k unknowns, complex) |
+
+Removing the shield at the shielded tuned C moves k = 1 from 127.71 to 106.43 MHz (−16.7 %, from the unshielded
+1/f² vs C fit). The shield's image currents cancel part of the rung inductance, so the unshielded coil needs about
+half the capacitance. The radiation Q of 83 is the empty coil's; a head-sized load (Q of about 60 from the phantom
+alone, below) would dominate it.
+
+## Phantom loading: conductivity vs permittivity
+
+Simulation only. The tuned coil (C = 1.828 pF, **not retuned**) with a homogeneous cylindrical phantom on its axis,
+length 20 cm, swept in conductivity and in permittivity. Plan, cost and actuals:
+[`docs/loading-study.md`](docs/loading-study.md); numbers: [`results/loading_sweep.json`](results/loading_sweep.json).
+
+**Model.** A centred cylinder keeps the coil's three mirror planes, so every case runs on the eighth model (production
+mesh density, 20 mm in the phantom, order 2, 0.159 M unknowns), three Palace solves per case on one mesh per radius:
+the k = 1 member with B1 along y (x = 0 PEC, y = 0 PMC, z = 0 PEC) with a lossless coil, which gives f and the
+phantom-only Q; its partner (x = 0 PMC, y = 0 PEC), for the quadrature B1+ map; and the first member again with the
+coil losses added (copper, 5.8e7 S/m, on the strips and the shield as a Palace `Conductivity` boundary, and 0.68 Ω
+ESR per capacitor as the equivalent parallel R at f0), which gives Q_L. The same mesh with the phantom set to εr 1,
+σ 0 is the empty coil: Q_U = 760 (ESR alone 1671, copper alone 1393). Q = Re f / (2 Im f). B1+ is normalised to a
+mean of 1 µT over the ROI (r < 8.4 cm, |z| < 4.2 cm); |E| and the SAR-like σ|E|²/2 (W/m³, no tissue density) are
+taken at the probes more than 3 mm inside the phantom.
+
+**Checks** (saline, εr 78, σ 0.6 S/m, r 8 cm):
+
+* *Loss tangent instead of conductivity.* tan δ = σ / (2π f0 ε0 εr) = 1.0825 gives 126.855 MHz, Q 65.8 against
+  126.867 MHz, Q 66.8 with the conductivity (−0.009 %, −1.5 %). It was not faster on this model (150 s against
+  105 s), so the sweep uses the conductivity.
+* *Symmetry.* Quarter model (0.30 M unknowns, both members) against the eighth model: k = 1 126.886 / 126.877 against
+  126.867 / 126.879 MHz, Q 66.76 / 66.84 against 66.80 / 66.82, B1+ ROI std/mean 17.93 against 17.96 %; the axial
+  B1+ maps differ by 1.0 % RMS ([`results/loading_symmetry_check.json`](results/loading_symmetry_check.json)). The
+  earlier full-model coarse loaded check (above) gave −0.6 %, Q 66 and 18 % too.
+* *Losses add.* The full-loss solve gives Q_L = 60.89; 1/(1/66.80 + 1/760) = 61.4.
+
+![Q against conductivity and k = 1 shift against permittivity](docs/img/loading_q_fshift.png)
+
+**Conductivity sweep** (εr 78, r 8 cm):
+
+| σ (S/m) | k = 1 (MHz) | shift | Q, phantom only | Q_L | Q_U/Q_L | B1+ ROI std/mean | peak \|E\| (V/m) | peak σ\|E\|²/2 (W/m³) |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 126.119 | −1.19 % | ∞ | 777 | 0.98 | 24.6 % | 55.5 | 0 |
+| 0.05 | 126.127 | −1.18 % | 465 | 291 | 2.61 | 24.5 % | 55.5 | 77 |
+| 0.1 | 126.153 | −1.16 % | 236 | 181 | 4.20 | 24.4 % | 55.5 | 154 |
+| 0.2 | 126.250 | −1.09 % | 125 | 107.5 | 7.06 | 23.8 % | 55.4 | 307 |
+| 0.3 | 126.391 | −0.98 % | 91.4 | 81.3 | 9.34 | 22.8 % | 55.2 | 458 |
+| 0.45 | 126.638 | −0.78 % | 72.8 | 66.0 | 11.5 | 20.7 % | 54.9 | 678 |
+| 0.6 | 126.873 | −0.60 % | 66.8 | 60.9 | 12.5 | 18.0 % | 54.5 | 890 |
+| 0.8 | 127.126 | −0.40 % | 65.8 | 60.0 | 12.7 | 13.7 % | 53.8 | 1160 |
+| 1.0 | 127.310 | −0.26 % | 67.8 | 61.7 | 12.3 | 9.6 % | 53.3 | 1419 |
+| 1.25 | 127.472 | −0.13 % | 71.6 | 64.9 | 11.7 | 6.8 % | 52.7 | 1735 |
+| 1.5 | 127.586 | −0.04 % | 75.7 | 68.3 | 11.1 | 9.1 % | 52.3 | 2053 |
+| 2.0 | 127.739 | +0.08 % | 83.0 | 74.2 | 10.2 | 18.8 % | 52.1 | 2714 |
+
+**Permittivity sweep** (σ 0, r 8 cm):
+
+| εr | 1 | 5 | 10 | 20 | 30 | 40 | 50 | 60 | 70 | 78 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| k = 1 (MHz) | 127.637 | 127.248 | 127.078 | 126.909 | 126.788 | 126.673 | 126.551 | 126.416 | 126.262 | 126.119 |
+| shift | 0 | −0.30 % | −0.44 % | −0.57 % | −0.66 % | −0.76 % | −0.85 % | −0.96 % | −1.08 % | −1.19 % |
+| Q_L | 760 | 760 | 761 | 762 | 763 | 765 | 767 | 770 | 773 | 777 |
+| B1+ ROI std/mean | 2.3 % | 1.1 % | 1.8 % | 4.7 % | 7.9 % | 11.1 % | 14.5 % | 18.0 % | 21.6 % | 24.6 % |
+| B1+ centre / ROI mean | 0.98 | 1.01 | 1.04 | 1.10 | 1.16 | 1.23 | 1.30 | 1.37 | 1.45 | 1.52 |
+
+Conductivity only (εr 1, σ 0.6 S/m): 127.444 MHz (−0.15 %), Q_L 112.5, Q_U/Q_L 6.75, B1+ 5.3 %.
+
+**Phantom radius** (εr 78, σ 0.6 S/m; each against its own empty mesh):
+
+| radius (cm) | 5 | 6.5 | 8 | 9.5 | 11 |
+|---|---|---|---|---|---|
+| k = 1 shift | −0.16 % | −0.34 % | −0.60 % | −1.02 % | −2.06 % |
+| Q_L | 283 | 124 | 60.9 | 35.2 | 23.1 |
+| Q_U/Q_L | 2.67 | 6.10 | 12.5 | 21.5 | 32.7 |
+| B1+ std/mean, z = 0 slice in the phantom | 7.8 % | 12.8 % | 18.3 % | 23.9 % | 29.8 % |
+
+![Quadrature B1+ across the conductivity and permittivity sweeps](docs/img/loading_b1_strip.png)
+
+What the numbers say:
+
+* **Q follows the conductivity.** Q_U/Q_L rises from 1 to 12.7 at σ = 0.8 S/m and then falls to 10.2 at 2 S/m: at
+  2 S/m the skin depth in the phantom is about 3.6 cm, so less of the phantom carries current. A lossless phantom
+  with εr 78 changes Q by +2 % (760 → 777). The phantom radius matters as much: Q_U/Q_L 2.7 at 5 cm, 33 at 11 cm.
+* **The permittivity moves the frequency and the field shape.** εr 1 → 78 lowers k = 1 by 1.19 % and raises the
+  B1+ std/mean from 2.3 to 24.6 % with the centre 1.52 times the ROI mean, the dielectric (standing-wave) brightening
+  seen at 3 T.
+* **The conductivity is not neutral for f and B1.** At εr 78 it pulls k = 1 back up (−1.19 % at σ 0, +0.08 % at
+  2 S/m) and damps the centre brightening: the std/mean falls to 6.8 % at 1.25 S/m and rises again at 2 S/m, where
+  the centre darkens (centre / mean 0.90).
+* At 1 µT mean B1+, the peak |E| inside the phantom stays at 52–56 V/m across the conductivity sweep, so the
+  SAR-like peak grows almost in proportion to σ.
+
+Limits of this study: one homogeneous cylinder, no head model; the coil is not retuned or rematched; the quadrature
+field is an ideal superposition of the two k = 1 eigenmodes, not a driven two-port solve; the copper loss of the
+zero-thickness strips is an upper bound (Palace puts the strip current on one face), so Q_U is on the low side and
+Q_U/Q_L on the high side; the production mesh is about 0.7 % high in frequency (see the symmetry section), which
+applies equally to the loaded and empty cases.
+
+`birdcage load` does the same for any tuned case whose mesh has a phantom region (`build --phantom
+--phantom-eps 1 --phantom-sigma 0`, then tune, then `load --phantom-eps 78 --phantom-sigma 0.6`) and writes the shift,
+Q_phantom, Q_U, Q_L and Q_U/Q_L into `tune_summary.json` under "loaded". Three solves: loaded with a lossless coil,
+then loaded and empty with the coil losses (one mode near f0 each; on a symmetry model the quadrature map needs the
+partner run). Run on the saline eighth case it reproduces
+the sweep values (Q_U 759.5, Q_L 60.89, −0.60 %).
 
 ## High-pass check (coarse mesh, not tuned)
 
@@ -436,13 +580,14 @@ Clip: [`docs/img/birdcage_porttune.mp4`](docs/img/birdcage_porttune.mp4) (silent
 
 ## Limits
 
-* Simulation only; nothing here is measured. Conductors are lossless PEC sheets and the capacitors are ideal, so
-  the unloaded coil has no Q, and the loaded Q counts phantom loss only. The phantom case uses the coarse mesh. Copper loss, cables and baluns are not modelled. The port-tuning step adds an assumed capacitor ESR (0.68 Ω) and an ideal capacitive-divider feed in the circuit simulator; its ports are referenced individually across each gap (single-ended, no balun), and the drive network is a circuit model, not part of the 3D solve.
+* Simulation only; nothing here is measured. By default the conductors are lossless PEC sheets and the capacitors are
+  ideal, so a shielded empty coil has no loss. `--copper-sigma` (Palace Conductivity boundary on strips and shield, an
+  upper bound on the strip loss, see the loading study) and `--esr` add coil losses. Cables and baluns are not modelled. The port-tuning step adds an assumed capacitor ESR (0.68 Ω) and an ideal capacitive-divider feed in the circuit simulator; its ports are referenced individually across each gap (single-ended, no balun), and the drive network is a circuit model, not part of the 3D solve.
 * Symmetry planes are implemented for the low-pass coil with a multiple of four rungs; the z = 0 plane must be PEC.
   The S-matrix assembly needs the planes between rungs.
 * The shield is a closed PEC can (end caps 10 cm beyond the rings), not the open-ended shield of a real scanner. It
-  probably lowers the ring inductance a little. `--shield-ends absorbing` and `--shield 0` (absorbing outer boundary)
-  are implemented but untested, and they turn the eigenproblem complex.
+  probably lowers the ring inductance a little. `--shield 0` (absorbing outer boundary) was tested on the coarse mesh
+  (section above); `--shield-ends absorbing` is implemented but untested. Both turn the eigenproblem complex.
 * The quadrature B1+ map is a superposition of the two k = 1 eigenmodes, which is what an ideal, decoupled
   quadrature drive excites at resonance. It is not a driven two-port solve.
 * The ladder model is quasi-static and ignores stray capacitance. It is a starting point, not the answer.

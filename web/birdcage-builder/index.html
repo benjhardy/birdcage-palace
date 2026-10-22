@@ -126,6 +126,8 @@ footer.foot { border-top: 1px solid var(--line); padding-top: 14px; display: fle
 footer.foot a { color: var(--muted); }
 .status { font: 500 0.82rem/1.4 var(--mono); color: var(--muted); }
 .status.ok { color: var(--ok); }
+.shot { margin: 0; }
+.shot img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 @media (max-width: 600px) {
   .topbar { padding-inline: 16px; }
   .wrap { padding-inline: 16px; gap: 20px; }
@@ -182,6 +184,7 @@ footer.foot a { color: var(--muted); }
         <div class="tblwrap"><table class="ref" id="accTbl"></table></div>
         <p class="note" id="accNote"></p>
         <p class="note">Package test, 21 Oct 2026: a 12-rung high-pass coil, 24 cm diameter, 3 T, coarse mesh, order 1 (84 k unknowns), built from this page's package in a fresh venv. Ladder 24.29 pF per ring gap &rarr; Palace k = 1 at 134.18 MHz (+5.1 %). One tune step: 26.80 pF &rarr; 128.15 MHz (+0.33 %, inside the 0.5 % tolerance). Two Palace solves of 40 s each on 4 ranks; quadrature B1+ ROI std/mean 2.3 %.</p>
+        <p class="note">Package test "Both", 21 Oct 2026: the reference 16-rung low-pass coil, coarse mesh, order 1, from this page's zip in a fresh venv (15.5 min in all). With the shield: 2.807 pF &rarr; 112.98 MHz, tuned 1.8635 pF &rarr; 127.714 MHz. Without: 1.804 pF &rarr; 107.49 MHz, tuned 0.9369 pF &rarr; 127.706 MHz, radiation Q 83. Removing the shield at the same C moves k = 1 by &minus;16.7 %. The unshielded air box has to reach about &lambda;0/4 past the coil: a box 15 cm out gave a radiation Q of 18 (<a href="https://github.com/benjhardy/birdcage-palace/blob/main/results/unshielded_airbox_check.json">air-box check</a>).</p>
         <p class="note">This is why the package does not stop at the ladder value. It solves the coil in Palace at the first guess, then <span class="mono">birdcage tune</span> takes secant steps on 1/f² (linear in C) on the same mesh until k = 1 is within the tolerance of f0. Numbers from <a href="https://github.com/benjhardy/birdcage-palace/tree/main/results">results/lp16_3T.json, hp16_3T.json, bp16_3T.json</a>.</p>
       </div>
     </div>
@@ -217,7 +220,8 @@ footer.foot a { color: var(--muted); }
           </div>
         </div>
         <div class="grp">
-          <label class="check"><input type="checkbox" id="shielded"> RF shield</label>
+          <div class="lbl">RF shield</div>
+          <div class="seg shieldSeg" role="group" aria-label="RF shield"><button type="button" data-v="with">With shield</button><button type="button" data-v="without">Without shield</button><button type="button" data-v="both">Both (compare)</button></div>
           <div class="two" id="shieldFields">
             <div class="field"><label for="shield">Shield diameter <span class="u">(cm)</span></label><input type="number" id="shield" step="any"></div>
             <div class="field"><label for="shield_length">Shield length <span class="u">(cm)</span></label><input type="number" id="shield_length" step="any" placeholder="auto"></div>
@@ -226,13 +230,14 @@ footer.foot a { color: var(--muted); }
           <p class="note" id="shieldNote"></p>
         </div>
         <div class="grp">
-          <label class="check"><input type="checkbox" id="phantom"> Saline phantom</label>
+          <label class="check"><input type="checkbox" id="phantom"> Phantom (loaded run after tuning)</label>
           <div class="two" id="phFields">
             <div class="field"><label for="phantom_radius">Radius <span class="u">(cm)</span></label><input type="number" id="phantom_radius" step="any"></div>
             <div class="field"><label for="phantom_length">Length <span class="u">(cm)</span></label><input type="number" id="phantom_length" step="any"></div>
             <div class="field"><label for="phantom_eps">&epsilon;<sub>r</sub></label><input type="number" id="phantom_eps" step="any"></div>
             <div class="field"><label for="phantom_sigma">&sigma; <span class="u">(S/m)</span></label><input type="number" id="phantom_sigma" step="any"></div>
           </div>
+          <p class="note" id="phNote"></p>
         </div>
         <div class="grp">
           <div class="lbl" id="meshLbl">Mesh and solver</div>
@@ -275,7 +280,12 @@ footer.foot a { color: var(--muted); }
 
   <section class="card pad" id="pkgCard" aria-label="Palace package">
     <h2>Open in Palace and begin tuning</h2>
-    <p class="note">A web page cannot run Palace. This button writes a package for this design: <span class="mono">spec.json</span>, <span class="mono">run.sh</span> (Linux or WSL), <span class="mono">run.ps1</span> (Windows, runs run.sh in WSL) and a README with the requirements. The script installs birdcage-palace from GitHub, builds the coil, solves it at the ladder first guess, labels the modes, then tunes C until k = 1 is on f0.</p>
+    <p class="note">A web page cannot run Palace. This button writes a package for this design: <span class="mono">spec.json</span>, <span class="mono">run.sh</span> (Linux or WSL), <span class="mono">run.ps1</span> (Windows, runs run.sh in WSL) and a README with the requirements. The script installs birdcage-palace from GitHub, builds the coil, solves it at the ladder first guess, labels the modes, then tunes C until k = 1 is on f0. With a phantom, it then fills the phantom with your &epsilon;<sub>r</sub> and &sigma; on the same mesh and reports the loaded Q.</p>
+    <div class="grp">
+      <div class="lbl">Final build: RF shield</div>
+      <div class="seg shieldSeg" role="group" aria-label="RF shield"><button type="button" data-v="with">With shield</button><button type="button" data-v="without">Without shield</button><button type="button" data-v="both">Both (compare)</button></div>
+      <p class="note" id="pkgShieldNote"></p>
+    </div>
     <div class="row"><button class="btn primary" id="goBtn" type="button">Open in Palace and begin tuning</button><span class="status" id="goStatus" aria-live="polite"></span></div>
     <div class="grid2">
       <div class="grp">
@@ -288,6 +298,23 @@ footer.foot a { color: var(--muted); }
         <p class="note">For a coding agent such as Claude Code with <a href="https://github.com/benjhardy/palace-agent-tools">palace-agent-tools</a> (Palace config linter, cost estimate, run guard, result checks).</p>
       </div>
     </div>
+  </section>
+
+  <section class="card pad" id="loading" aria-label="Loading results">
+    <h2>Loading: what the phantom's &sigma; and &epsilon;<sub>r</sub> do</h2>
+    <p class="note">Our Palace results for the reference coil (16-rung low-pass, 28 cm, 34 cm shield, 3 T) with a centred cylindrical phantom (radius 8 cm, length 20 cm), C fixed at the empty-coil tune. Eighth model with both k = 1 polarisations, production mesh density; coil losses: copper strips and shield plus 0.68 &Omega; ESR per capacitor. Simulation only.</p>
+    <div class="readout" id="loadOut">
+      <div><span>Q_U, empty coil</span><b>760</b><small>copper + ESR</small></div>
+      <div><span>Q_L, saline</span><b>60.9</b><small>&epsilon;<sub>r</sub> 78, &sigma; 0.6 S/m</small></div>
+      <div><span>Q_U / Q_L</span><b>12.5</b><small>92 % of the power goes into the phantom</small></div>
+      <div><span>&epsilon;<sub>r</sub> 78, &sigma; 0</span><b>Q_L 777</b><small>k = 1 &minus;1.19 %, B1+ 24.6 %</small></div>
+      <div><span>&sigma; 0.6, &epsilon;<sub>r</sub> 1</span><b>Q_L 112</b><small>k = 1 &minus;0.15 %, B1+ 5.3 %</small></div>
+    </div>
+    <div class="grid2">
+      <figure class="shot"><img src="img/loading_q_fshift.png" alt="Q of the k = 1 mode against phantom conductivity, and the k = 1 frequency shift against permittivity" loading="lazy" width="1080" height="900"></figure>
+      <figure class="shot"><img src="img/loading_b1_strip.png" alt="Quadrature B1+ maps at the centre slice across the conductivity sweep and the permittivity sweep, one colour scale" loading="lazy" width="1080" height="560"></figure>
+    </div>
+    <p class="note"><b>Q follows the conductivity.</b> Q_U/Q_L goes from 1 (empty) to 12.7 at &sigma; = 0.8 S/m and drops back to 10.2 at 2 S/m, where the skin depth (about 3.6 cm) keeps the field out of the phantom's centre. A lossless phantom of &epsilon;<sub>r</sub> 78 changes Q by only +2 %. <b>The permittivity moves the frequency and the field shape:</b> &epsilon;<sub>r</sub> 1 &rarr; 78 lowers k = 1 by 1.19 % and raises the B1+ std/mean from 2.3 to 24.6 % (the centre brightens). Conductivity is not neutral there either: at &epsilon;<sub>r</sub> 78 it pulls k = 1 back up (&minus;1.19 % at &sigma; 0, +0.08 % at 2 S/m) and damps the centre brightening (B1+ std/mean 6.8 % at 1.25 S/m, 18.0 % at saline 0.6 S/m). Numbers: <a href="https://github.com/benjhardy/birdcage-palace/blob/main/results/loading_sweep.json">results/loading_sweep.json</a>; method and cost: <a href="https://github.com/benjhardy/birdcage-palace/blob/main/docs/loading-study.md">docs/loading-study.md</a>.</p>
   </section>
 
   <section class="grid2">
@@ -412,7 +439,7 @@ const Ladder = (() => {
 const Spec = (() => {
   // CLI defaults of `birdcage build` (birdcage_palace/cli.py), SI units, plus the solve/tune defaults.
   const DEFAULTS = { legs: 16, diameter: 0.28, length: 0.25, leg_width: 0.012, ring_width: 0.015, gap: 0.005,
-    type: 'lowpass', b0: 3.0, shielded: true, shield: 0.34, shield_length: null, shield_ends: 'pec',
+    type: 'lowpass', b0: 3.0, shield_mode: 'with', shielded: true, shield: 0.34, shield_length: null, shield_ends: 'pec',
     c_leg: null, c_ring: null, bandpass_ratio: 1.0, phantom: false, phantom_radius: 0.08, phantom_length: 0.20,
     phantom_eps: 78.0, phantom_sigma: 0.6, mesh: 'production', h_coil: 0.005, h_gap: 0.0025, h_max: 0.035,
     order: 2, modes: 20, symmetry: 'none', np: 4, tol: 0.005, max_iter: 4 };
@@ -421,6 +448,16 @@ const Spec = (() => {
   const label = { lowpass: 'low-pass', highpass: 'high-pass', bandpass: 'band-pass' };
   const fmt = v => String(+(+v).toPrecision(10));
   const shieldLen = s => s.shielded ? (s.shield_length || s.length + 0.20) : null;
+  // unshielded: air cylinder closed by a second-order absorbing boundary (birdcage_palace.geometry.air_box)
+  // gap max(15 cm, lambda0/4) radially and past each end ring (birdcage_palace.geometry.air_clearance)
+  const airGap = s => Math.max(0.15, 299792458 / (Ladder.GAMMA_BAR_1H * s.b0) / 4);
+  const airBox = s => [s.diameter / 2 + airGap(s), s.length + 2 * airGap(s)];
+  // the cases a package builds: with the shield, without it, or both (compare)
+  function cases(s) {
+    const mk = sh => Object.assign({}, s, { shielded: sh });
+    return s.shield_mode === 'both' ? [mk(true), mk(false)] : [mk(s.shield_mode !== 'without')];
+  }
+  const LOAD = { esr: 0.68, copper_sigma: 5.8e7 };
   function toDesign(s) {
     return { legs: s.legs, diameter: s.diameter, length: s.length, leg_width: s.leg_width, ring_width: s.ring_width,
       gap: s.gap, coil_type: s.type, b0: s.b0, shield_diameter: s.shielded ? s.shield : null,
@@ -429,7 +466,7 @@ const Spec = (() => {
   function caseName(s) {
     const b = fmt(s.b0).replace('.', 'p');
     return `${short[s.type]}${s.legs}_d${Math.round(s.diameter * 100)}_${b}T` + (s.mesh === 'production' ? '' : '_' + s.mesh) +
-      (s.symmetry !== 'none' ? '_' + s.symmetry : '');
+      (s.symmetry !== 'none' ? '_' + s.symmetry : '') + (s.shielded ? '' : '_noshield');
   }
   // [errors, warnings]: each {f: field id or '', m: message}
   function check(s) {
@@ -453,14 +490,16 @@ const Spec = (() => {
       else if (s.shield < s.diameter + 0.03) w('shield', 'Shield within 1.5 cm of the rungs: the image currents cancel much of the rung inductance.');
       if (s.shield_length != null && !(s.shield_length > s.length + s.ring_width + 0.02)) e('shield_length', 'Shield must be longer than the coil plus 2 cm.');
       if (s.shield_ends === 'absorbing') w('', 'Open shield ends (absorbing): implemented in birdcage-palace but untested; the eigenproblem turns complex and slower.');
-    } else w('', 'Unshielded: absorbing outer boundary. Implemented but untested; complex eigenproblem.');
+    }
+    if (s.shield_mode !== 'with') { const [ar, al] = airBox(s);
+      w('', `Without shield: the domain is an air cylinder ⌀ ${fmt(+(2 * ar * 100).toFixed(1))} × ${fmt(+(al * 100).toFixed(1))} cm (gap max(15 cm, λ0/4) around the coil) closed by a second-order absorbing boundary. The eigenproblem is complex and Palace reports the radiation Q; each solve cost about 8× a shielded one in our package test, and one of them took 48 min.`); }
     if (s.phantom) {
       if (!(s.phantom_radius > 0.005 && s.phantom_radius < R - 0.01)) e('phantom_radius', 'Phantom radius must be at least 1 cm inside the rungs.');
-      const dom = shieldLen(s) || s.length + 0.6;
+      const dom = s.shield_mode === 'without' ? airBox(s)[1] : (shieldLen(s) || s.length + 0.6);
       if (!(s.phantom_length > 0.01 && s.phantom_length < dom - 0.02)) e('phantom_length', 'Phantom must be shorter than the shield.');
       if (!(s.phantom_eps >= 1)) e('phantom_eps', 'εr must be ≥ 1.');
       if (!(s.phantom_sigma >= 0)) e('phantom_sigma', 'σ must be ≥ 0.');
-      w('', 'Lossy phantom: Palace solves a complex eigenproblem with GMRES. On our machine this took hours with 12+ modes; use the coarse mesh and 2–4 modes.');
+      w('', 'Phantom: the coil is tuned with the phantom region filled with air, then birdcage load fills it with your εr and σ on the same mesh (C not retuned) and solves three times: lossless coil (shift, phantom Q, B1+), and with copper + 0.68 Ω capacitor ESR loaded and empty (Q_L, Q_U). Measured on the eighth model (0.16 M unknowns): 1.8 min, 3.4 min and 1.2 min. A full model with 12+ modes took hours before; keep the mode count at 2–4.');
     }
     if (!(s.h_coil > 0 && s.h_gap > 0 && s.h_max > 0)) e('h_coil', 'Mesh sizes must be positive.');
     else {
@@ -490,8 +529,10 @@ const Spec = (() => {
     if (s.type === 'bandpass') a.push(['bandpass-ratio', s.bandpass_ratio]);
     if (s.c_leg != null && s.type !== 'highpass') a.push(['c-leg', s.c_leg]);
     if (s.c_ring != null && s.type !== 'lowpass') a.push(['c-ring', s.c_ring]);
-    if (s.phantom) { a.push(['phantom', null], ['phantom-radius', s.phantom_radius], ['phantom-length', s.phantom_length], ['phantom-eps', s.phantom_eps], ['phantom-sigma', s.phantom_sigma]); }
-    a.push(['h-coil', s.h_coil], ['h-gap', s.h_gap], ['h-max', s.h_max], ['order', s.order], ['modes', s.modes]);
+    // the phantom region is meshed but filled with air for the tune; `birdcage load` sets eps_r and sigma afterwards
+    if (s.phantom) { a.push(['phantom', null], ['phantom-radius', s.phantom_radius], ['phantom-length', s.phantom_length], ['phantom-eps', 1], ['phantom-sigma', 0]); }
+    // unshielded: the k = 1 pair only (birdcage_palace.palace caps it too; damped box modes make more modes slow)
+    a.push(['h-coil', s.h_coil], ['h-gap', s.h_gap], ['h-max', s.h_max], ['order', s.order], ['modes', s.shielded ? s.modes : Math.min(s.modes, 2)]);
     if (s.symmetry !== 'none') a.push(['symmetry', s.symmetry], ['sym-bc', s.symmetry === 'eighth' ? 'x=pec,y=pmc,z=pec' : 'x=pec,y=pmc']);
     return a;
   }
@@ -502,6 +543,9 @@ const Spec = (() => {
     for (let i = 0; i < parts.length; i += per) lines.push(parts.slice(i, i + per).join(' '));
     return `${bin} build ` + lines.join(sep);
   }
+  function loadArgs(s) {
+    return [['phantom-eps', s.phantom_eps], ['phantom-sigma', s.phantom_sigma], ['esr', LOAD.esr], ['copper-sigma', LOAD.copper_sigma]];
+  }
   function specJson(s, lad, est, when) {
     const build = {};
     for (const [k, v] of buildArgs(s)) build[k.replace(/-/g, '_')] = v === null ? true : v;
@@ -509,8 +553,10 @@ const Spec = (() => {
     const pf = c => c == null ? null : +(c * 1e12).toFixed(4);
     const sp = lad.used.spectrum;
     return { schema: 'birdcage-palace/spec-1', generated_by: 'https://benjhardy.github.io/birdcage-builder/', generated: when,
-      title: title(s), case: caseName(s), build,
+      title: title(s), case: caseName(s), shield_mode: s.shield_mode, build,
       tune: { np: s.np, tol: s.tol, max_iter: s.max_iter },
+      load: s.phantom ? Object.fromEntries(loadArgs(s).map(([k, v]) => [k.replace(/-/g, '_'), v])) : undefined,
+      compare: s.shield_mode === 'both' ? cases(s).map(c => 'runs/' + caseName(c)) : undefined,
       ladder: { model: 'ladder network, Neumann/GMD inductances' + (s.shielded ? ', shield by images' : ''),
         f0_mhz: +(lad.first.f_target_hz / 1e6).toFixed(4), c_leg_first_guess_pf: pf(lad.first.c_leg), c_ring_first_guess_pf: pf(lad.first.c_ring),
         c_leg_used_pf: pf(lad.used.c_leg), c_ring_used_pf: pf(lad.used.c_ring),
@@ -523,7 +569,7 @@ const Spec = (() => {
   function title(s) {
     return `${s.legs}-rung ${label[s.type]} birdcage, D ${fmt(s.diameter * 100)} cm, L ${fmt(s.length * 100)} cm, ${fmt(s.b0)} T`;
   }
-  return { DEFAULTS, MESH, toDesign, caseName, check, buildArgs, buildCmd, specJson, title, label, fmt, shieldLen };
+  return { DEFAULTS, MESH, toDesign, caseName, check, buildArgs, buildCmd, specJson, title, label, fmt, shieldLen, airBox, cases, loadArgs, LOAD };
 })();
 
 const Cost = (() => {
@@ -537,10 +583,12 @@ const Cost = (() => {
   const OMUL = { 1: 1.8, 2: 1, 3: 1 };                 // order-1 runs took longer per unknown than the o2 law
   function feats(s) {
     const N = s.legs, D = s.diameter, L = s.length, R = D / 2;
-    const Rd = s.shielded ? s.shield / 2 : Math.max(2 * R, R + 0.15), Ld = s.shielded ? Spec.shieldLen(s) : L + 0.6;
+    const [Rd, Ld] = s.shielded ? [s.shield / 2, Spec.shieldLen(s)] : Spec.airBox(s);
     const Neff = N * Math.sqrt(Math.min(1, Math.PI * D / N / 0.12));
     const nc = { lowpass: N, highpass: 2 * N, bandpass: 3 * N }[s.type];
-    return [Neff * (L - s.ring_width), Math.PI * D, nc, Math.PI * Rd * Rd * Ld];
+    // unshielded: the bulk mesh grows to lambda0/12 towards the absorbing boundary; the graded box meshed like a
+    // shield volume of 0.135 x its own (LP16, 3 T: 102 k tets coarse, 212 k production, both fit by 0.32 m^3)
+    return [Neff * (L - s.ring_width), Math.PI * D, nc, Math.PI * Rd * Rd * Ld * (s.shielded ? 1 : 0.135)];
   }
   function estimate(s) {
     const f = feats(s);
@@ -552,10 +600,22 @@ const Cost = (() => {
     const u = tets * UPT[s.order], x = u / REF.u;
     const mem = REF.gb * Math.pow(x, 1.05);
     const t = Math.max(20, REF.s * Math.pow(x, 1.24) * (0.08 + 0.92 * s.modes / 20) * OMUL[s.order]);
-    const lossy = s.phantom || !s.shielded || s.shield_ends === 'absorbing';
-    const tm = lossy ? 3 : 1;   // complex eigenproblem: at least 3x (measured loaded coarse o2: 5.4 min vs 3.8 min, 2 modes)
+    const lossy = !s.shielded || s.shield_ends === 'absorbing';  // the phantom is air while tuning
+    // absorbing boundary: complex eigenproblem and a larger air domain. Measured in the package test (LP16 coarse,
+    // order 1, 6 modes, 3 ranks, shared CPU): 4.3-5.1 min per unshielded solve against 0.6 min shielded, so x8
+    const tm = lossy ? 8 : 1;
+    // birdcage load: lossless coil (lossy phantom), + coil loss loaded and empty (nonlinear copper solve): measured on the
+    // eighth model 105 s, 206 s and 76 s against 41 s for a lossless solve -> about 2.6 + 5 + 1.9 = 9.5 lossless solves
+    const ld = s.phantom ? 9.5 : 0;
     return { tets: Math.round(tets), unknowns: Math.round(u), memLo: +(mem * 0.8).toFixed(1), memHi: +(mem * 1.2).toFixed(1),
-      tLo: t * tm, tHi: t * 1.8 * tm, tuneLo: 2 * t * tm, tuneHi: 4 * t * 1.8 * tm, rough, lossy };
+      tLo: t * tm, tHi: t * 1.8 * tm, tuneLo: 2 * t * tm, tuneHi: 4 * t * 1.8 * tm, loadLo: ld * t * tm, loadHi: ld * t * 1.8 * tm,
+      rough, lossy, mem };
+  }
+  // every case of the package (with / without / both) plus the load step
+  function total(s) {
+    const es = Spec.cases(s).map(estimate);
+    const sum = k => es.reduce((a, e) => a + e[k], 0);
+    return { es, lo: sum('tuneLo') + sum('loadLo'), hi: sum('tuneHi') + sum('loadHi'), memHi: Math.max(...es.map(e => e.memHi)) };
   }
   // Measured Palace runs (birdcage-palace results/*.json and README), 4 ranks unless noted
   const ANCHORS = [
@@ -568,34 +628,57 @@ const Cost = (() => {
     ['LP16, coarse, o1, full', '92 k', '1.4 GB', '3.0 min', 'README'],
     ['HP16, coarse, o1, full (3 ranks)', '0.10 M', '–', '1.0–2.2 min', 'hp16_coarse, hp16_3T'],
   ];
-  return { estimate, ANCHORS };
+  return { estimate, total, ANCHORS };
 })();
 
 const Pkg = (() => {
   const REPO = 'https://github.com/benjhardy/birdcage-palace';
   const mins = v => v < 90 ? `${Math.max(1, Math.round(v / 30) / 2)} min` : `${(v / 60).toFixed(0)} min`;
   const range = (a, b) => `${mins(a)}–${mins(b)}`.replace(' min–', '–');
-  function commands(s, bin = '"$B"') {
-    const c = 'runs/' + Spec.caseName(s);
-    return [
-      `${Spec.buildCmd(s, bin, c, ' \\\n    ')}`,
-      `${bin} solve --case ${c} --np "$NP"`,
-      `${bin} modes --case ${c}`,
-      `${bin} tune  --case ${c} --np "$NP" --tol ${Spec.fmt(s.tol)} --max-iter ${s.max_iter}`];
+  // one block per case (with / without the shield), then the comparison when both are built
+  function plan(s, bin = '"$B"') {
+    const cs = Spec.cases(s), np = bin === 'birdcage' ? '$NP' : '"$NP"';
+    const blocks = cs.map(c => {
+      const n = 'runs/' + Spec.caseName(c);
+      return { c, name: n, label: c.shielded ? 'with shield' : 'without shield',
+        build: Spec.buildCmd(c, bin, n, ' \\\n    '), buildOne: Spec.buildCmd(c, bin, n, ' '),
+        solve: `${bin} solve --case ${n} --np ${np}`, modes: `${bin} modes --case ${n}`,
+        tune: `${bin} tune  --case ${n} --np ${np} --tol ${Spec.fmt(s.tol)} --max-iter ${s.max_iter}`,
+        load: s.phantom ? `${bin} load  --case ${n} --np ${np} ` + Spec.loadArgs(s).map(([k, v]) => `--${k} ${Spec.fmt(v)}`).join(' ') : null };
+    });
+    const cmp = blocks.length > 1 ? `runs/${Spec.caseName(cs[0])}_compare.json` : null;
+    return { blocks, compare: cmp ? `${bin} compare --cases ${blocks.map(b => b.name).join(' ')} --out ${cmp}` : null, cmpFile: cmp };
   }
+  function commands(s, bin) { const p = plan(s, bin); return p.blocks.flatMap(b => [b.build, b.solve, b.modes, b.tune].concat(b.load ? [b.load] : [])).concat(p.compare ? [p.compare] : []); }
   function shortCommands(s) {
-    const c = 'runs/' + Spec.caseName(s);
     return [`python3 -m venv ~/.venvs/birdcage-palace && . ~/.venvs/birdcage-palace/bin/activate`,
-      `pip install "git+${REPO}"`, `NP=${s.np}`,
-      ...commands(s, 'birdcage').map(x => x.replace(/"\$NP"/g, '$NP'))].join('\n');
+      `pip install "git+${REPO}"`, `NP=${s.np}`, ...commands(s, 'birdcage')].join('\n');
   }
   function runSh(s, lad, est, when) {
-    const [b, so, mo, tu] = commands(s);
+    const p = plan(s), nb = p.blocks.length, tot = Cost.total(s);
+    const steps = p.blocks.map((b, i) => {
+      const tag = nb > 1 ? ` [${i + 1}/${nb} ${b.label}]` : '';
+      return `echo "== 3/5 build${tag}: ladder first guess, Gmsh mesh, Palace config"
+${b.build}
+if [ "$STOP_AFTER" != build ]; then
+echo "== 4/5 solve at the ladder first guess, then label the modes${tag}"
+${b.solve}
+${b.modes}
+if [ "$STOP_AFTER" != solve ] && [ "$STOP_AFTER" != modes ]; then
+echo "== 5/5 tune${tag}: secant steps on 1/f^2 until k=1 is within ${(s.tol * 100).toFixed(2)} % of f0"
+${b.tune}${b.load ? `
+echo "== load${tag}: phantom eps_r ${Spec.fmt(s.phantom_eps)}, sigma ${Spec.fmt(s.phantom_sigma)} S/m on the same mesh (C not retuned); Q_U and Q_L with copper + ${Spec.LOAD.esr} ohm ESR"
+${b.load}` : ''}
+fi
+fi`;
+    }).join('\n\n');
     return `#!/usr/bin/env bash
 # birdcage-palace run script, written by the birdcage builder (https://benjhardy.github.io/birdcage-builder/) ${when}
 # Design: ${Spec.title(s)}; f0 ${(lad.first.f_target_hz / 1e6).toFixed(3)} MHz
+# Shield: ${{ with: 'with shield', without: 'without shield (absorbing boundary)', both: 'both: with and without, then a comparison' }[s.shield_mode]}
 # Mesh: ${s.mesh} (strip edge ${Spec.fmt(s.h_coil * 1000)} mm, gap ${Spec.fmt(s.h_gap * 1000)} mm, bulk ${Spec.fmt(s.h_max * 1000)} mm), order ${s.order}${s.symmetry !== 'none' ? ', ' + s.symmetry + ' model' : ''}
-# Estimate for one solve: ~${(est.unknowns / 1e6).toFixed(2)} M unknowns, ${est.memLo}-${est.memHi} GB, ${range(est.tLo, est.tHi)} on 4 ranks
+# Estimate for one solve: ~${(est.unknowns / 1e6).toFixed(2)} M unknowns, ${est.memLo}-${est.memHi} GB, ${range(est.tLo, est.tHi)} on 4 ranks${nb > 1 ? ' (shielded case)' : ''}
+# Estimate for the whole script: ${range(tot.lo, tot.hi)}
 #
 # Usage:  bash run.sh            (Linux or WSL2)
 # Env:    NP=${s.np}  ranks          VENV=~/.venvs/birdcage-palace
@@ -632,18 +715,14 @@ fi
 export BIRDCAGE_PALACE_CMD="\${BIRDCAGE_PALACE_CMD:-}"
 echo "Palace: $BIRDCAGE_PALACE_CMD  (ranks: $NP)"
 
-echo "== 3/5 build: ladder first guess, Gmsh mesh, Palace config"
-${b}
-[ "$STOP_AFTER" = build ] && exit 0
-
-echo "== 4/5 solve at the ladder first guess, then label the modes"
-${so}
-${mo}
-[ "$STOP_AFTER" = solve ] || [ "$STOP_AFTER" = modes ] && exit 0
-
-echo "== 5/5 tune: secant steps on 1/f^2 until k=1 is within ${(s.tol * 100).toFixed(2)} % of f0"
-${tu}
-echo "done: runs/${Spec.caseName(s)}/tune_summary.json, modes.json, figs/"
+${steps}
+${p.compare ? `
+if [ -z "$STOP_AFTER" ]; then
+echo "== compare: with vs without the shield (k=1 shift, tuned C, Q, B1+ homogeneity)"
+${p.compare}
+fi` : ''}
+[ -n "$STOP_AFTER" ] && exit 0
+echo "done: ${p.blocks.map(b => b.name + '/tune_summary.json').join(', ')}${p.cmpFile ? ', ' + p.cmpFile + ' (+ .md)' : ''}"
 `;
   }
   function runPs1(s) {
@@ -657,6 +736,11 @@ if (-not $wslDir) { throw "WSL distribution '$Distro' not found (wsl --list --ve
 wsl -d $Distro -- bash -lc "cd '$wslDir' && NP=$Np STOP_AFTER='$StopAfter' bash run.sh"
 exit $LASTEXITCODE
 `;
+  }
+  function shieldText(s) {
+    const [ar, al] = Spec.airBox(s), sh = `${Spec.fmt(s.shield * 100)} cm shield, ${s.shield_ends === 'pec' ? 'closed PEC can' : 'open ends'}`;
+    const ab = `no shield: air cylinder ⌀ ${Spec.fmt(+(2 * ar * 100).toFixed(1))} × ${Spec.fmt(+(al * 100).toFixed(1))} cm (gap max(15 cm, λ0/4) around the coil) with a second-order absorbing boundary`;
+    return { with: sh, without: ab, both: `both, built and tuned one after the other: (1) ${sh}; (2) ${ab}` }[s.shield_mode];
   }
   function altHint(s) {
     const alt = [];
@@ -678,9 +762,12 @@ Case: runs/${Spec.caseName(s)}. Simulation only.
 | ladder first guess, C per rung gap | ${pf(lad.first.c_leg)} |
 | ladder first guess, C per end-ring gap | ${pf(lad.first.c_ring)} |
 | C used for the first solve | rung ${pf(lad.used.c_leg)}, ring ${pf(lad.used.c_ring)} |
+| shield | ${shieldText(s)} |
 | mesh | ${s.mesh}: strip edge ${Spec.fmt(s.h_coil * 1000)} mm, gap ${Spec.fmt(s.h_gap * 1000)} mm, bulk ${Spec.fmt(s.h_max * 1000)} mm; order ${s.order}; ${s.modes} modes${s.symmetry !== 'none' ? '; ' + s.symmetry + ' model' : ''} |
 | estimate, one solve (${s.np} ranks) | ~${(est.unknowns / 1e6).toFixed(2)} M unknowns, ${est.memLo}-${est.memHi} GB peak, ${range(est.tLo, est.tHi)} |
 | estimate, tune loop (2-4 solves) | ${range(est.tuneLo, est.tuneHi)} |
+| estimate, whole run.sh | ${range(Cost.total(s).lo, Cost.total(s).hi)} |${s.phantom ? `
+| phantom (loaded run after the tune) | radius ${Spec.fmt(s.phantom_radius * 100)} cm, length ${Spec.fmt(s.phantom_length * 100)} cm, εr ${Spec.fmt(s.phantom_eps)}, σ ${Spec.fmt(s.phantom_sigma)} S/m |` : ''}
 
 The estimate is scaled from measured Palace runs of 16-rung reference coils (MUMPS, 4 ranks, 8-thread 32 GB
 machine). The ladder model is a quasi-static first guess: for the 3 T reference coils Palace put k = 1 at 111.1 MHz
@@ -717,39 +804,51 @@ Options: \`NP=8 bash run.sh\`, \`STOP_AFTER=build bash run.sh\` (mesh and config
 3. \`birdcage solve\` and \`birdcage modes\`: Palace eigenmodes at the first guess; every mode labelled by its
    rung-current pattern (k) and ROI field uniformity.
 4. \`birdcage tune\`: rescales C with secant steps on 1/f^2 and re-solves on the same mesh until the k = 1 pair is
-   within ${(s.tol * 100).toFixed(2)} % of f0 (at most ${s.max_iter} solves).
+   within ${(s.tol * 100).toFixed(2)} % of f0 (at most ${s.max_iter} solves).${s.phantom ? `
+5. \`birdcage load\`: the phantom region (air during the tune) gets εr ${Spec.fmt(s.phantom_eps)} and σ ${Spec.fmt(s.phantom_sigma)} S/m on the
+   same mesh, C not retuned. Three solves: lossless coil (frequency shift, phantom-only Q, quadrature B1+), then copper
+   (5.8e7 S/m on strips and shield, Palace Conductivity boundary) + ${Spec.LOAD.esr} ohm ESR per capacitor, loaded and empty:
+   Q_L, Q_U and Q_U/Q_L. Result in tune_summary.json under "loaded".` : ''}${s.shield_mode === 'both' ? `
+${s.phantom ? 6 : 5}. \`birdcage compare\`: the two tuned cases side by side: k = 1 shift when the shield is removed at the
+   shielded tuned C (from the 1/f^2 vs C fit of the unshielded tune), tuned C, Q of k = 1 (the unshielded Q is the
+   radiation Q), quadrature B1+ homogeneity.` : ''}
 
 ## Results
 
-- runs/${Spec.caseName(s)}/tune_summary.json: k = 1 frequency, final C, first guess, ROI std/mean of |B1|, quadrature B1+
-- runs/${Spec.caseName(s)}/modes.json: every mode; tune_history.json: every tune step; figs/: spectrum, B1 maps, currents
-- runs/${Spec.caseName(s)}/solve_stats.json: unknowns, wall time, memory
+${Spec.cases(s).map(c => `- runs/${Spec.caseName(c)}/tune_summary.json (${c.shielded ? 'with shield' : 'without shield'}): k = 1 frequency, final C, first guess, ROI std/mean of |B1|, quadrature B1+${s.phantom ? '; "loaded": shift, Q_phantom, Q_U, Q_L, Q_U/Q_L' : ''}`).join('\n')}
+- modes.json: every mode; tune_history.json: every tune step; figs/: spectrum, B1 maps, currents; solve_stats.json: unknowns, wall time, memory${s.shield_mode === 'both' ? `
+- runs/${Spec.caseName(Spec.cases(s)[0])}_compare.json and .md: the shield comparison` : ''}
 
-Limits: lossless PEC strips and ideal capacitors, so the unloaded Q is infinite. The closed shield is a PEC can.
+Limits: the tune uses lossless PEC strips and ideal capacitors, so a shielded unloaded coil has infinite Q there${s.phantom ? ' (the load step adds copper and ESR for Q_U and Q_L)' : ''}. The closed shield is a PEC can. Without a shield the second-order absorbing boundary sits about λ0/4 out; in our 3 T test the radiation Q moved by a few % between a 0.7 and a 1.0 m box, so treat it as approximate.
 See ${REPO}#limits.
 `;
   }
   function prompt(s, lad) {
-    const c = 'runs/' + Spec.caseName(s);
+    const p = plan(s, 'birdcage');
     const pf = x => x == null ? null : (x * 1e12).toFixed(2) + ' pF';
     const guess = [pf(lad.first.c_leg) && 'rung ' + pf(lad.first.c_leg), pf(lad.first.c_ring) && 'ring ' + pf(lad.first.c_ring)].filter(Boolean).join(', ');
+    let n = 2;
+    const steps = p.blocks.map(b => { const t = p.blocks.length > 1 ? ` (${b.label})` : '';
+      return [`${n++}. ${b.buildOne}${t}`, `${n++}. Check the config and the memory estimate against this machine. Keep MUMPS with "MGMaxLevels": 1. Run Palace in the foreground.`,
+        `${n++}. birdcage solve --case ${b.name} --np ${s.np} && birdcage modes --case ${b.name}`,
+        `${n++}. birdcage tune --case ${b.name} --np ${s.np} --tol ${Spec.fmt(s.tol)}`].concat(b.load ? [`${n++}. ${b.load.replace('$NP', s.np)}`] : []).join('\n'); }).join('\n');
     return `Build, solve and tune this MRI birdcage coil in Palace with birdcage-palace (${REPO}). Use palace-agent-tools (https://github.com/benjhardy/palace-agent-tools) to lint the Palace config and check the cost before each solve.
 
-Coil: ${Spec.title(s)}. Target: k = 1 at f0 = ${(lad.first.f_target_hz / 1e6).toFixed(3)} MHz (1H). Ladder first guess: ${guess}.
+Coil: ${Spec.title(s)}. Shield: ${shieldText(s)}. Target: k = 1 at f0 = ${(lad.first.f_target_hz / 1e6).toFixed(3)} MHz (1H). Ladder first guess${s.shield_mode === 'both' ? ' (with shield)' : ''}: ${guess}.
 
 1. pip install "git+${REPO}" in a fresh venv.
-2. ${Spec.buildCmd(s, 'birdcage', c, ' ')}
-3. Check the config and the memory estimate against this machine. Keep MUMPS with "MGMaxLevels": 1. Run Palace in the foreground.
-4. birdcage solve --case ${c} --np ${s.np} && birdcage modes --case ${c}
-5. birdcage tune --case ${c} --np ${s.np} --tol ${Spec.fmt(s.tol)}
+${steps}${p.compare ? `\n${n++}. ${p.compare}` : ''}
 
-Report from tune_summary.json and modes.json: k = 1 frequency (both members and the split), the final C per gap, the ladder first guess and the Palace k = 1 at that guess, ROI std/mean of |B1| (one mode) and of the quadrature B1+, unknowns, peak memory and wall time per solve. Simulation only: do not call any number measured.`;
+Report from tune_summary.json and modes.json${p.compare ? ' and the compare file' : ''}: k = 1 frequency (both members and the split), the final C per gap, the ladder first guess and the Palace k = 1 at that guess, ROI std/mean of |B1| (one mode) and of the quadrature B1+, Q of k = 1${s.phantom ? ', the loaded block (shift, Q_phantom, Q_U, Q_L, Q_U/Q_L)' : ''}, unknowns, peak memory and wall time per solve. Simulation only: do not call any number measured.`;
   }
   function files(s, lad, est, when) {
-    return { 'spec.json': JSON.stringify(Spec.specJson(s, lad, est, when), null, 1) + '\n', 'run.sh': runSh(s, lad, est, when),
+    const f = { 'spec.json': JSON.stringify(Spec.specJson(Spec.cases(s)[0], lad, est, when), null, 1) + '\n', 'run.sh': runSh(s, lad, est, when),
       'run.ps1': runPs1(s).replace(/\n/g, '\r\n'), 'README.md': readme(s, lad, est, when) };
+    // Both: a second spec for the unshielded case (birdcage build --spec spec_noshield.json gives that case)
+    if (s.shield_mode === 'both') f['spec_noshield.json'] = JSON.stringify(Spec.specJson(Spec.cases(s)[1], lad, est, when), null, 1) + '\n';
+    return f;
   }
-  return { files, shortCommands, prompt, commands };
+  return { files, shortCommands, prompt, commands, plan };
 })();
 </script>
 
@@ -801,10 +900,11 @@ function writeInputs() {
   for (const f of NUMS) { const el = $('#' + f); if (document.activeElement !== el) el.value = toUi(f, S[f]); }
   $('#legsR').value = S.legs;
   $('#order').value = String(S.order); $('#symmetry').value = S.symmetry;
-  $('#shielded').checked = S.shielded; $('#phantom').checked = S.phantom;
+  S.shielded = S.shield_mode !== 'without';
+  setSeg('.shieldSeg', S.shield_mode); $('#phantom').checked = S.phantom;
   setSeg('#typeSeg', S.type); setSeg('#endsSeg', S.shield_ends); setSeg('#meshSeg', S.mesh);
   $$('#b0Chips button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === S.b0)));
-  $('#shieldFields').hidden = !S.shielded; $('#phFields').hidden = !S.phantom; $('#bpField').hidden = S.type !== 'bandpass';
+  $('#shieldFields').hidden = S.shield_mode === 'without'; $('#phFields').hidden = !S.phantom; $('#bpField').hidden = S.type !== 'bandpass';
   $$('#hFields input').forEach(i => { i.disabled = S.mesh !== 'custom'; });
   $('#symmetry').querySelectorAll('option').forEach(o => { if (o.value !== 'none') o.disabled = S.type !== 'lowpass' || S.legs % 4 !== 0; });
 }
@@ -816,11 +916,14 @@ function readInput(f) {
   S[f] = INTS.has(f) ? (Number.isFinite(v) ? Math.round(v) : NaN) : (Number.isFinite(v) ? v / (UNIT[f] || 1) : NaN);
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
-function load() { try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v && typeof v === 'object') for (const k in Spec.DEFAULTS) if (k in v) S[k] = v[k]; } catch (e) {} }
+function load() { try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v && typeof v === 'object') { for (const k in Spec.DEFAULTS) if (k in v) S[k] = v[k];
+  if (!('shield_mode' in v) && v.shielded === false) S.shield_mode = 'without'; } } catch (e) {}
+  if (!['with', 'without', 'both'].includes(S.shield_mode)) S.shield_mode = 'with'; S.shielded = S.shield_mode !== 'without'; }
 
 // ---------- compute ----------
-let LAD = null, EST = null, ERRS = [], WARNS = [];
+let LAD = null, LAD2 = null, EST = null, ERRS = [], WARNS = [];
 function compute() {
+  S.shielded = S.shield_mode !== 'without';
   [ERRS, WARNS] = Spec.check(S);
   $$('#inputs input.bad').forEach(i => i.classList.remove('bad'));
   ERRS.forEach(e => { const el = e.f && $('#' + e.f); if (el) el.classList.add('bad'); });
@@ -829,12 +932,20 @@ function compute() {
   for (const w of WARNS) box.insertAdjacentHTML('beforeend', `<div class="msg w"><b>Note:</b> ${w.m}</div>`);
   if (!ERRS.length) {
     LAD = Ladder.design(Spec.toDesign(S));
+    // Both: the ladder model of the unshielded case too (no image currents)
+    LAD2 = S.shield_mode === 'both' ? Ladder.design(Spec.toDesign(Spec.cases(S)[1])) : null;
     EST = Cost.estimate(S);
   }
   $('#goBtn').disabled = !!ERRS.length;
   $('#f0out').textContent = Number.isFinite(S.b0) ? (Ladder.GAMMA_BAR_1H * S.b0 / 1e6).toFixed(3) + ' MHz' : '–';
   $('#typeNote').textContent = { lowpass: 'Capacitors in the rungs. k = 1 is the lowest mode above DC.', highpass: 'Capacitors in the end-ring segments. k = 1 is the highest rung mode; the end-ring modes sit above it.', bandpass: 'Capacitors in rungs and rings. The ratio sets C_ring/C_rung for the first guess.' }[S.type];
-  $('#shieldNote').textContent = S.shielded ? `Shield length ${S.shield_length ? 'set' : 'auto = coil length + 20 cm'} (${((Spec.shieldLen(S) || 0) * 100).toFixed(1)} cm). A PEC can closes the ends.` : '';
+  const [ar, al] = Spec.airBox(S), abTxt = `an air cylinder ⌀ ${(2 * ar * 100).toFixed(0)} × ${(al * 100).toFixed(0)} cm with a second-order absorbing boundary (gap max(15 cm, λ0/4) around the coil)`;
+  const shTxt = `Shield length ${S.shield_length ? 'set' : 'auto = coil length + 20 cm'} (${((Spec.shieldLen(S) || 0) * 100).toFixed(1)} cm). ${S.shield_ends === 'pec' ? 'A PEC can closes the ends.' : 'Open ends (absorbing).'}`;
+  $('#shieldNote').textContent = { with: shTxt, without: 'No shield: the domain is ' + abTxt + '.', both: shTxt + ' The second case has no shield: ' + abTxt + '.' }[S.shield_mode];
+  $('#pkgShieldNote').textContent = { with: 'With shield: one case, the coil inside the shield set above. The eigenproblem is real and lossless.',
+    without: `Without shield: one case in ${abTxt}. Palace solves a complex eigenproblem and reports the radiation Q of k = 1. In our package test (coarse mesh) an unshielded solve took 4–5 min against 0.6 min shielded.`,
+    both: `Both: run.sh builds, solves and tunes the shielded case and then the unshielded one (${abTxt}) on the same mesh settings, and birdcage compare writes the k = 1 shift at the same C, the two tuned capacitors, the Q and the B1+ homogeneity.` }[S.shield_mode];
+  $('#phNote').textContent = S.phantom ? 'The tune runs with this region filled with air; birdcage load then sets εr and σ on the same mesh (C not retuned) and reports the shift, the B1+ map and Q_U, Q_L, Q_U/Q_L.' : '';
   renderReadout(); renderSpectrum(); renderCost(); renderPkgText(); draw3d();
   save();
 }
@@ -855,9 +966,16 @@ function renderReadout() {
   if (first.c_ring != null) items.push(['First guess C, ring', pf(first.c_ring), `${2 * S.legs} gaps`]);
   items.push(['Ladder k = 1', MHz(f1) + ' MHz', (S.c_leg != null || S.c_ring != null) ? 'with your C' : 'on f0 by construction']);
   if (near) items.push(['Nearest other mode', MHz(near) + ' MHz', `${((near / f1 - 1) * 100).toFixed(1)} % from k = 1`]);
+  if (LAD2) {
+    const c1 = first.c_leg != null ? first.c_leg : first.c_ring, c2 = LAD2.first.c_leg != null ? LAD2.first.c_leg : LAD2.first.c_ring;
+    items.push(['First guess C, no shield', pf(c2), `${(c2 / c1).toFixed(3)} × shielded`]);
+    const d2 = Spec.toDesign(Spec.cases(S)[1]); d2.c_leg = used.c_leg; d2.c_ring = used.c_ring;
+    const sp2 = Ladder.analytic(d2).spectrum, f2 = sp2.f_hz[sp2.k.indexOf(1)];
+    items.push(['Shield removed, same C', MHz(f2) + ' MHz', `k = 1 ${((f2 / f1 - 1) * 100).toFixed(1)} % (ladder)`]);
+  }
   items.push(['L per rung (self)', used.Lleg_self_nH.toFixed(1) + ' nH', `ring seg. ${used.Lring_seg_self_nH.toFixed(1)} nH`]);
   r.innerHTML = items.map(([a, b, c]) => `<div><span>${a}</span><b>${b}</b><small>${c}</small></div>`).join('');
-  $('#specNote').textContent = `${S.legs / 2 + 1} ladder modes${sp.f_corot_hz ? ' + co-rotating ring mode' : ''} · tall stem = degenerate pair`;
+  $('#specNote').textContent = `${S.legs / 2 + 1} ladder modes${sp.f_corot_hz ? ' + co-rotating ring mode' : ''} · tall stem = degenerate pair` + (LAD2 ? ' · dashed = no shield, same C' : '') + (S.shield_mode === 'without' ? ' · no shield' : '');
   let h = '<thead><tr><th>k</th><th>f (MHz)</th><th>pair</th><th>vs f0</th></tr></thead><tbody>';
   sp.k.forEach((k, i) => { const f = sp.f_hz[i]; if (S.type === 'lowpass' && k === 0) return;
     h += `<tr${k === 1 ? ' class="hl"' : ''}><td>${k}${k === 0 ? ' (ring, counter-rot.)' : ''}</td><td>${isFinite(f) ? MHz(f) : '–'}</td><td>${sp.degenerate[i] ? 'yes' : 'no'}</td><td>${isFinite(f) ? ((f / f0 - 1) * 100).toFixed(1) + ' %' : ''}</td></tr>`; });
@@ -882,7 +1000,11 @@ function renderSpectrum() {
   const pts = [];
   sp.k.forEach((k, i) => { const f = sp.f_hz[i] / 1e6; if (f > 0 && isFinite(f)) pts.push({ f, lab: 'k' + k, k, pair: sp.degenerate[i] }); });
   if (sp.f_corot_hz) pts.push({ f: sp.f_corot_hz / 1e6, lab: 'ring', k: -1, pair: false });
-  const fmax = Math.max(f0, ...pts.map(p => p.f)) * 1.08, fmin = 0;
+  const pts2 = [];
+  if (LAD2) { const d2 = Spec.toDesign(Spec.cases(S)[1]); d2.c_leg = LAD.used.c_leg; d2.c_ring = LAD.used.c_ring;
+    const sp2 = Ladder.analytic(d2).spectrum; sp2.k.forEach((k, i) => { const f = sp2.f_hz[i] / 1e6; if (f > 0 && isFinite(f)) pts2.push({ f, k, pair: sp2.degenerate[i] }); });
+    if (sp2.f_corot_hz) pts2.push({ f: sp2.f_corot_hz / 1e6, k: -1, pair: false }); }
+  const fmax = Math.max(f0, ...pts.map(p => p.f), ...pts2.map(p => p.f)) * 1.08, fmin = 0;
   const L = 16, R = 16, T = 16, B = 34, pw = W - L - R, ph = H - T - B;
   const X = f => L + (f - fmin) / (fmax - fmin) * pw;
   g.strokeStyle = C.line; g.lineWidth = 1; g.fillStyle = C.muted; g.font = `11px ${C.mono}`; g.textAlign = 'center';
@@ -906,6 +1028,12 @@ function renderSpectrum() {
     g.beginPath(); g.moveTo(x, T + ph); g.lineTo(x, T + ph - h); g.stroke();
     g.fillStyle = col; g.beginPath(); g.arc(x, T + ph - h, p.k === 1 ? 4 : 3, 0, 7); g.fill();
     if (p.row < 6) { g.font = `${p.k === 1 ? 600 : 500} 11px ${C.mono}`; g.fillText(p.lab, x, T + 12 + 13 * p.row); }
+  }
+  for (const p of pts2) {
+    const x = X(p.f), col = p.k === 1 ? C.field : p.k === -1 ? C.capring : p.k === 0 ? C.warn : C.accent;
+    const h = (p.pair ? ph - (top - T) : (ph - (top - T)) * 0.6) * 0.8;
+    g.strokeStyle = col; g.lineWidth = 1.4; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(x, T + ph); g.lineTo(x, T + ph - h); g.stroke(); g.setLineDash([]);
+    g.beginPath(); g.arc(x, T + ph - h, 3, 0, 7); g.stroke();
   }
   const fl = ` f0 ${f0.toFixed(1)} MHz `; g.font = `600 11px ${C.mono}`;
   const right = X(f0) > L + pw * 0.6, tw = g.measureText(fl).width, tx = right ? X(f0) - tw - 2 : X(f0) + 2, ty = T + ph - 22;
@@ -933,10 +1061,14 @@ function renderCost() {
   const n1 = v => v < 60 ? '<1' : (v / 60 < 10 ? (v / 60).toFixed(1) : (v / 60).toFixed(0)), mm = (a, b) => `${n1(a)}–${n1(b)} min`;
   o.innerHTML = [['Tetrahedra', M(e.tets), S.symmetry !== 'none' ? S.symmetry + ' model' : 'full coil'], ['Unknowns', M(e.unknowns), 'order ' + S.order],
     ['Peak memory', `${e.memLo}–${e.memHi} GB`, 'Palace, all ranks'], ['One solve', mm(e.tLo, e.tHi), `${S.modes} modes, 4 ranks`],
-    ['Tune loop', mm(e.tuneLo, e.tuneHi), '2–4 solves']].map(([a, b, c]) => `<div><span>${a}</span><b>${b}</b><small>${c}</small></div>`).join('');
+    ['Tune loop', mm(e.tuneLo, e.tuneHi), '2–4 solves']].concat(S.phantom || S.shield_mode === 'both' ? [['Whole package', mm(Cost.total(S).lo, Cost.total(S).hi),
+      [S.shield_mode === 'both' ? '2 cases' : '', S.phantom ? 'tune + load' : 'tune'].filter(Boolean).join(', ')]] : [])
+    .map(([a, b, c]) => `<div><span>${a}</span><b>${b}</b><small>${c}</small></div>`).join('');
   let n = 'Estimate scaled from 8 measured Palace runs of 16-rung, 28 cm reference coils (4 production, 2 symmetry, 2 coarse).';
   if (e.rough) n += ' Custom mesh or phantom: rougher.';
-  if (e.lossy) n += ' Phantom or open boundary: complex eigenproblem, time ×3 or more.';
+  if (e.lossy) n += ' Open boundary: complex eigenproblem and a larger air domain, time ×8 (package test).';
+  if (S.shield_mode === 'both') n += ' Both: the unshielded case has a larger air domain and a complex eigenproblem; the package total adds both tune loops.';
+  if (S.phantom) n += ' Load step: three extra solves (lossy phantom, then the copper solves), scaled from eighth-model runs.';
   if (e.memHi > 28) n += ' More memory than the 32 GB machine of the measured runs: use the coarse mesh' + (S.type === 'lowpass' && S.legs % 4 === 0 ? ' or a symmetry model.' : '.');
   if (S.np !== 4) n += ` Times are for 4 ranks; ${S.np} ranks were not measured.`;
   $('#costNote').textContent = n;
@@ -1021,7 +1153,8 @@ function draw3d() {
   const cv = $('#cv3'), [g, W, H] = fitCanvas(cv), C = Theme.c, RG = C.rgb;
   g.clearRect(0, 0, W, H);
   if (ERRS.length) { g.fillStyle = C.muted; g.font = `13px ${C.mono}`; g.fillText('Fix the inputs to see the coil.', 16, 40); legend3(); return; }
-  const s = S, R0 = s.diameter / 2, l = s.length, Rs = s.shielded ? s.shield / 2 : null, Ls = Spec.shieldLen(s);
+  const s = S, R0 = s.diameter / 2, l = s.length, Rs = s.shield_mode !== 'without' ? s.shield / 2 : null, Ls = Spec.shieldLen(s);
+  const both = s.shield_mode === 'both';
   const size = Math.max(Rs ? 2 * Rs : s.diameter * 1.2, Ls || l * 1.3);
   const M = View.R, dist = 3.2 * size, sc = Math.min(W, H) * 0.82 / size * (dist / (dist - 0)) * 0.95;
   const proj = p => { const x = M[0][0] * p[0] + M[0][1] * p[1] + M[0][2] * p[2], y = M[1][0] * p[0] + M[1][1] * p[1] + M[1][2] * p[2], z = M[2][0] * p[0] + M[2][1] * p[1] + M[2][2] * p[2];
@@ -1031,9 +1164,9 @@ function draw3d() {
   const circ = (r, z, n = 72) => Array.from({ length: n + 1 }, (_, i) => [r * Math.cos(2 * Math.PI * i / n), r * Math.sin(2 * Math.PI * i / n), z]);
   // shield: translucent wireframe
   if (Rs) {
-    const sc2 = rgba(RG.muted, 0.32);
-    for (const z of [-Ls / 2, Ls / 2]) { line(circ(Rs, z), sc2, s.shield_ends === 'pec' ? 1.6 : 1, s.shield_ends === 'pec' ? null : [4, 4]); if (s.shield_ends === 'pec') line(circ(Rs * 0.5, z, 48), rgba(RG.muted, 0.14), 1); }
-    for (let i = 0; i < 24; i++) { const a = 2 * Math.PI * i / 24; line([[Rs * Math.cos(a), Rs * Math.sin(a), -Ls / 2], [Rs * Math.cos(a), Rs * Math.sin(a), Ls / 2]], rgba(RG.muted, 0.16), 1); }
+    const sc2 = rgba(RG.muted, both ? 0.26 : 0.32), dsh = both ? [6, 5] : null;
+    for (const z of [-Ls / 2, Ls / 2]) { line(circ(Rs, z), sc2, s.shield_ends === 'pec' ? 1.6 : 1, s.shield_ends === 'pec' ? dsh : [4, 4]); if (s.shield_ends === 'pec') line(circ(Rs * 0.5, z, 48), rgba(RG.muted, 0.14), 1, dsh); }
+    for (let i = 0; i < 24; i++) { const a = 2 * Math.PI * i / 24; line([[Rs * Math.cos(a), Rs * Math.sin(a), -Ls / 2], [Rs * Math.cos(a), Rs * Math.sin(a), Ls / 2]], rgba(RG.muted, both ? 0.12 : 0.16), 1, dsh); }
     if (s.shield_ends === 'pec') for (let i = 0; i < 8; i++) { const a = 2 * Math.PI * i / 8; for (const z of [-Ls / 2, Ls / 2]) line([[0, 0, z], [Rs * Math.cos(a), Rs * Math.sin(a), z]], rgba(RG.muted, 0.1), 1); }
   }
   if (s.phantom) {
@@ -1086,9 +1219,11 @@ function draw3d() {
   const ar = -Math.PI / 2 + 0.25, rr = R0 + 0.022;
   line([[rr * Math.cos(ar), rr * Math.sin(ar), -l / 2], [rr * Math.cos(ar), rr * Math.sin(ar), l / 2]], dimc, 1, [3, 3]);
   tag([rr * Math.cos(ar), rr * Math.sin(ar), 0], `L ${Spec.fmt(l * 100)} cm`);
-  if (Rs) tag([Rs * Math.cos(2.4), Rs * Math.sin(2.4), -Ls / 2], `shield ⌀ ${Spec.fmt(s.shield * 100)} × ${Spec.fmt(+(Ls * 100).toFixed(1))} cm`);
+  if (Rs) tag([Rs * Math.cos(2.4), Rs * Math.sin(2.4), -Ls / 2], `shield ⌀ ${Spec.fmt(s.shield * 100)} × ${Spec.fmt(+(Ls * 100).toFixed(1))} cm` + (both ? ' (case 1 of 2)' : ''));
   g.textAlign = 'right'; g.fillStyle = C.muted; g.font = `11px ${C.mono}`;
   g.fillText(`${N} rungs · ${Spec.label[s.type]}`, W - 10, 18);
+  if (s.shield_mode !== 'with') { const [ar, al] = Spec.airBox(s);
+    g.fillText(`${both ? 'case 2: ' : ''}no shield, absorbing boundary ⌀ ${(2 * ar * 100).toFixed(0)} × ${(al * 100).toFixed(0)} cm`, W - 10, 34); }
   legend3();
 }
 function legend3() {
@@ -1097,7 +1232,8 @@ function legend3() {
   if (S.type !== 'lowpass') items.push([C.capring, `capacitor in end ring (${2 * S.legs})`]);
   if (View.cur !== 'off') items.push([C.field, '+ current'], [C.hfield, '− current']);
   let h = items.map(([c, t]) => `<span><i style="background:${c}"></i>${t}</span>`).join('');
-  if (S.shielded) h += `<span><i class="ln" style="color:${C.muted}"></i>shield, ${S.shield_ends === 'pec' ? 'closed PEC can' : 'open ends'}</span>`;
+  if (S.shield_mode !== 'without') h += `<span><i class="ln" style="color:${C.muted}"></i>shield, ${S.shield_ends === 'pec' ? 'closed PEC can' : 'open ends'}${S.shield_mode === 'both' ? ' (with-shield case; the second case has none)' : ''}</span>`;
+  else h += `<span>no shield (absorbing outer boundary, not drawn)</span>`;
   if (S.phantom) h += `<span><i class="ln" style="color:${C.hfield}"></i>phantom</span>`;
   $('#leg3').innerHTML = h;
 }
@@ -1124,7 +1260,7 @@ function init() {
   $('#legsR').addEventListener('input', e => { S.legs = +e.target.value; writeInputs(); compute(); });
   $('#order').addEventListener('change', e => { S.order = +e.target.value; compute(); });
   $('#symmetry').addEventListener('change', e => { S.symmetry = e.target.value; compute(); });
-  $('#shielded').addEventListener('change', e => { S.shielded = e.target.checked; writeInputs(); compute(); });
+  $$('.shieldSeg button').forEach(b => b.addEventListener('click', () => { S.shield_mode = b.dataset.v; writeInputs(); compute(); }));
   $('#phantom').addEventListener('change', e => { S.phantom = e.target.checked; writeInputs(); compute(); });
   const seg = (sel, f, after) => $$(sel + ' button').forEach(b => b.addEventListener('click', () => { S[f] = b.dataset.v; if (after) after(); writeInputs(); compute(); }));
   seg('#typeSeg', 'type', () => { if (S.type !== 'lowpass') S.symmetry = 'none'; });

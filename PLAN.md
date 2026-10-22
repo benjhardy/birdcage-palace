@@ -79,3 +79,14 @@ Re-timed on a free machine at the end (4 ranks): full model 11.4 min, 16.6 GB (f
 10 modes, 130 s with 20 modes; eighth 41 s. Port-tuning actuals: the four unloaded eighth sweeps took 454-548 s of Palace
 time each (2.0-2.1 GB), the four loaded ones 1083-1417 s (2.3-2.5 GB), all on a shared CPU; the two z-half verification
 eigen solves 0.58 M unknowns, 7.2 GB, 2.3-4.8 min.
+
+## Shield choice and loading study (21 Oct)
+
+Unshielded air box (coarse, order 1, C 0.8807 pF, 3 ranks, CPU shared with the sweep): radius 0.29 / 0.45 / 0.70 / 1.0 m
+first-order ABC gave Q 17.8 / 39.6 / 68.4 / 78.1 (48-502 s); second order at 0.45 / 0.70 m: 43.3 / 80.9 (127 / 254 s). New
+default: gap max(15 cm, lambda0/4), second order, graded bulk mesh: 102 k tets, Q 81.1, 281 s. With an absorbing boundary,
+2 modes and target 0.75 f0 (a 6-mode solve once took 48 min on damped box modes). Package test "Both" (coarse, order 1):
+run.sh 15.5 min; shielded 3 x 37 s, unshielded 3 x 235-280 s. results/shield_compare_coarse.json,
+results/unshielded_airbox_check.json.
+
+Loading study: docs/loading-study.md (plan, projection 2.7 h, actuals 3.5 h); 30 cases x 3 eighth-model solves.
