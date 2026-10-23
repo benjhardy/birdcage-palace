@@ -76,7 +76,7 @@ only one pair images. This tool finds that pair automatically.
 ## Quick start
 
 ```bash
-pip install -e .            # numpy, matplotlib, gmsh (+ pyvista for the 3D renders)
+pip install -e .            # numpy, scipy, matplotlib, gmsh (+ pyvista for the 3D renders)
 birdcage build --legs 16 --diameter 0.28 --length 0.25 --type lowpass --b0 3.0 --shield 0.34 --out runs/lp16
 birdcage solve --case runs/lp16 --np 4      # Palace (on Windows it runs inside WSL; see below)
 birdcage modes --case runs/lp16             # modes.json + figures in runs/lp16/figs
@@ -488,13 +488,40 @@ into a circuit simulator: every capacitor gap becomes a port, Palace computes th
 once, and circuitRF (open source, run here through its headless CLI) closes the gaps with capacitors and adds the
 drive network, so a capacitor change costs a circuit evaluation instead of a 3D solve.
 
+**Step-by-step guide: [`docs/circuitrf-tuning.md`](docs/circuitrf-tuning.md)** (circuitRF install, every command,
+a line-by-line reference to the `.cnl` netlist, how to edit goals, ESR or the feed and run `circuitRF opt` by hand,
+the Palace check, costs, limits and troubleshooting). The [web builder](https://benjhardy.github.io/birdcage-builder/)
+writes the same command sequence for your own low-pass coil (Tuning method: circuitRF port tuning).
+
+![Tuning with circuitRF: the port-tuning flow beside the eigenmode loop](docs/img/circuitrf-tuning-process.png)
+
+circuitRF is an MIT-licensed RF circuit simulator, https://github.com/potatobeanradio/circuitRF; these results used
+release 1.0.9 (Linux x64 tarball, installed into `~/.local`, see the guide). The commands for the reference coil
+(production density; the build C is the eigenmode-loop result, used as the reference for the "before" sweep):
+
 ```bash
-birdcage portcase --case runs/e_em --sym-bc x=pec,y=pmc,z=pec --out runs/pt_e_em   # gaps -> 500 ohm ports, driven sweep
-# ... the same for _me, _mm, _ee; then `birdcage solve` on each
-python tools/port_tune.py assemble --cases runs/pt_e --out runs/pt_e/birdcage16.s16p --rotation-average
-python tools/port_tune.py tune --snp runs/pt_e/birdcage16.s16p --name unloaded --esr 0.68 --band-khz 2 --iters 30
+birdcage build --legs 16 --diameter 0.28 --length 0.25 --type lowpass --b0 3.0 --shield 0.34 --c-leg 1.8278810808e-12 \
+    --symmetry eighth --sym-bc x=pec,y=pmc,z=pec --modes 10 --out runs/pt_e_base
+birdcage portcase --case runs/pt_e_base --sym-bc x=pec,y=pmc,z=pec --out runs/pt_e_em   # gaps -> 500 ohm ports, driven sweep
+birdcage portcase --case runs/pt_e_base --sym-bc x=pmc,y=pec,z=pec --out runs/pt_e_me
+birdcage portcase --case runs/pt_e_base --sym-bc x=pmc,y=pmc,z=pec --out runs/pt_e_mm
+birdcage portcase --case runs/pt_e_base --sym-bc x=pec,y=pec,z=pec --out runs/pt_e_ee
+birdcage solve --case runs/pt_e_em --np 4
+birdcage solve --case runs/pt_e_me --np 4
+birdcage solve --case runs/pt_e_mm --np 4
+birdcage solve --case runs/pt_e_ee --np 4
+birdcage porttune assemble  --cases runs/pt_e --out runs/pt_e/birdcage16.s16p --rotation-average
+birdcage porttune resonance --snp runs/pt_e/birdcage16.s16p
+birdcage porttune tune      --snp runs/pt_e/birdcage16.s16p --name unloaded --esr 0.68 --band-khz 2 --iters 30
 python tools/port_tune_figs.py --unloaded runs/pt_e/circuitrf/tune_unloaded.json --loaded runs/ptl_e/circuitrf/tune_loaded.json
 ```
+
+`birdcage porttune` finds circuitRF on the PATH, in `~/.local/share/circuitRF/current/`, or where `--crf` /
+`BIRDCAGE_CIRCUITRF` point. On Linux it runs natively; from Windows it runs in WSL (`--wsl-distro` /
+`BIRDCAGE_WSL_DISTRO`, default the WSL default distribution). `python tools/port_tune.py ...` still works and takes
+the same sub-commands. The assembled matrices are in `results/birdcage16_unloaded.s16p` and
+`results/birdcage16_loaded.s16p` (each with its `_sym` rotation average), so the circuit step can be re-run without
+Palace.
 
 **The EM step.** The 16 gaps are resistive lumped ports with a 500 Ω reference (close to the gap reactance at
 128 MHz, which keeps S well conditioned), each port its own excitation, and Palace's adaptive fast sweep covers
@@ -519,7 +546,7 @@ Checks: on a coarse mesh the rebuilt first column matches a direct full-model dr
 adaptive sweep needed 4–5 full solves per excitation, and a cubic spline from the 2 MHz output grid is accurate to
 about 1e-8.
 
-**The circuit step** (circuitRF 1.0.9, `tools/port_tune.py`). Each gap gets its capacitor with an ESR of 0.68 Ω
+**The circuit step** (circuitRF 1.0.9, `birdcage porttune tune`, code in `birdcage_palace/porttune.py`). Each gap gets its capacitor with an ESR of 0.68 Ω
 (capacitor Q of about 1000 at 128 MHz; the conductors are lossless PEC, so without it the unloaded coil would have
 nothing to match to). Each drive gap is a capacitive divider: the gap capacitor is split into a top capacitor Cd and a
 tap capacitor Cp, and the 50 Ω port is connected across Cp through a series capacitor Cm. Goals at 127.73 MHz:
@@ -617,4 +644,4 @@ Clip: [`docs/img/birdcage_porttune.mp4`](docs/img/birdcage_porttune.mp4) (silent
 
 ## License
 
-MIT. Palace (Apache-2.0) and Gmsh (GPL) are used as external tools and are not redistributed here.
+MIT. Palace (Apache-2.0), Gmsh (GPL) and circuitRF (MIT) are used as external tools and are not redistributed here.

@@ -142,8 +142,12 @@ def cmd_portcase(a) -> None:
         des.sym_bc = _parse_bc(a.sym_bc)
     des.validate()
     des.to_json(out / "design.json")
-    write_driven_config(des, out, a.fmin * 1e6, a.fmax * 1e6, a.fstep * 1e6, a.r_ref, a.adaptive_tol, a.max_samples)
-    print(f"port case {out}: {len(info['ports'])} ports, R_ref {a.r_ref:g} ohm, {a.fmin:g}-{a.fmax:g} MHz")
+    # default sweep: 100-160 MHz in 2 MHz steps at 3 T, scaled with the Larmor frequency for other fields
+    sc = des.f_larmor / (3.0 * 42.577478e6)
+    fmin, fmax, fstep = (round(d * sc, 3) if v is None else v for v, d in ((a.fmin, 100.0), (a.fmax, 160.0), (a.fstep, 2.0)))
+    write_driven_config(des, out, fmin * 1e6, fmax * 1e6, fstep * 1e6, a.r_ref, a.adaptive_tol, a.max_samples)
+    print(f"port case {out}: {len(info['ports'])} ports, R_ref {a.r_ref:g} ohm, {fmin:g}-{fmax:g} MHz in {fstep:g} MHz steps, "
+          f"planes {des.sym_bc}")
 
 
 def _pf(c):
@@ -523,12 +527,15 @@ def _parser() -> argparse.ArgumentParser:
     pc.add_argument("--out", required=True)
     pc.add_argument("--sym-bc", default=None)
     pc.add_argument("--r-ref", type=float, default=500.0, help="port reference resistance, ohm")
-    pc.add_argument("--fmin", type=float, default=100.0, help="MHz")
-    pc.add_argument("--fmax", type=float, default=160.0, help="MHz")
-    pc.add_argument("--fstep", type=float, default=2.0, help="MHz (the adaptive ROM is evaluated, and post-processed, at every step)")
+    pc.add_argument("--fmin", type=float, default=None, help="MHz (default 100 MHz x B0 / 3 T)")
+    pc.add_argument("--fmax", type=float, default=None, help="MHz (default 160 MHz x B0 / 3 T)")
+    pc.add_argument("--fstep", type=float, default=None,
+                    help="MHz (default 2 MHz x B0 / 3 T; the adaptive ROM is evaluated, and post-processed, at every step)")
     pc.add_argument("--adaptive-tol", type=float, default=1e-5)
     pc.add_argument("--max-samples", type=int, default=40)
     pc.set_defaults(fn=cmd_portcase)
+    from . import porttune
+    porttune.add_parser(sub)
     for name, fn, hlp in (("solve", cmd_solve, "run Palace"), ("modes", cmd_modes, "identify modes, write modes.json + figures"),
                           ("tune", cmd_tune, "retune C until the k=1 mode is on the Larmor frequency")):
         s = sub.add_parser(name, help=hlp)
@@ -545,8 +552,9 @@ def _parser() -> argparse.ArgumentParser:
         s.add_argument("--palace-cmd", default=os.environ.get("BIRDCAGE_PALACE_CMD", DEFAULT_PALACE_CMD),
                        help="Palace launcher with {cfg} and {np} placeholders (env BIRDCAGE_PALACE_CMD); "
                             f"default \"{DEFAULT_PALACE_CMD}\"")
-        s.add_argument("--wsl-distro", default=os.environ.get("BIRDCAGE_WSL_DISTRO", "Ubuntu-24.04"),
-                       help="WSL distribution that runs Palace when called from Windows")
+        s.add_argument("--wsl-distro", default=os.environ.get("BIRDCAGE_WSL_DISTRO", "auto"),
+                       help="Windows only: WSL distribution that runs Palace (env BIRDCAGE_WSL_DISTRO; default auto = the "
+                            "WSL default distribution). On Linux Palace runs natively.")
         s.set_defaults(fn=fn)
         if name == "tune":
             tune_p = s

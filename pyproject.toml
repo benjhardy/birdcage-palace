@@ -10,7 +10,7 @@ readme = "README.md"
 license = {text = "MIT"}
 authors = [{name = "Benjamin Hardy"}]
 requires-python = ">=3.10"
-dependencies = ["numpy", "matplotlib", "gmsh>=4.11"]
+dependencies = ["numpy", "scipy", "matplotlib", "gmsh>=4.11"]
 
 [project.optional-dependencies]
 render = ["pyvista"]

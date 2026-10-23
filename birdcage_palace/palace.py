@@ -168,15 +168,21 @@ def _wslpath(p: Path) -> str:
     return f"/mnt/{drive}" + p.as_posix()[2:]
 
 
-def palace_busy(distro: str = "Ubuntu-24.04") -> list[str]:
+def wsl_prefix(distro: str | None = "auto") -> list[str]:
+    """wsl.exe with -d <distro>, or without it for "auto" (the WSL default distribution)."""
+    d = (distro or "auto").strip()
+    return ["wsl"] + ([] if d.lower() in ("auto", "default", "") else ["-d", d])
+
+
+def palace_busy(distro: str = "auto") -> list[str]:
     cmd = ["pgrep", "-af", "palace-x86_64.bin"]
     if platform.system() == "Windows":
-        cmd = ["wsl", "-d", distro, "--"] + cmd
+        cmd = wsl_prefix(distro) + ["--"] + cmd
     r = subprocess.run(cmd, capture_output=True, text=True)
     return [ln for ln in r.stdout.splitlines() if "palace-x86_64.bin" in ln and "pgrep" not in ln]
 
 
-def run(case: Path, np_: int = 4, palace_cmd: str = "run_palace {cfg} {np}", distro: str = "Ubuntu-24.04") -> dict:
+def run(case: Path, np_: int = 4, palace_cmd: str = "run_palace {cfg} {np}", distro: str = "auto") -> dict:
     """Run Palace on case/config.json. On Windows the command runs inside WSL (Palace via Apptainer)."""
     case = Path(case)
     pcmd = palace_cmd.format(cfg="config.json", np=np_)
@@ -185,7 +191,7 @@ def run(case: Path, np_: int = 4, palace_cmd: str = "run_palace {cfg} {np}", dis
              f"else {pcmd} > palace.log 2> time.log; fi")
     t0 = time.time()
     if platform.system() == "Windows":
-        cmd = ["wsl", "-d", distro, "--", "bash", "-lc", f"cd {shlex.quote(_wslpath(case))} && {inner}"]
+        cmd = wsl_prefix(distro) + ["--", "bash", "-lc", f"cd {shlex.quote(_wslpath(case))} && {inner}"]
     else:
         cmd = ["bash", "-lc", f"cd {shlex.quote(str(case.resolve()))} && {inner}"]
     r = subprocess.run(cmd)

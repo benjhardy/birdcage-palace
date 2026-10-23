@@ -308,6 +308,15 @@ footer.foot a { color: var(--muted); }
       <div class="seg shieldSeg" role="group" aria-label="RF shield"><button type="button" data-v="with">With shield</button><button type="button" data-v="without">Without shield</button><button type="button" data-v="both">Both (compare)</button></div>
       <p class="note" id="pkgShieldNote"></p>
     </div>
+    <div class="grp">
+      <div class="lbl" id="tuneLbl">Tuning method</div>
+      <div class="seg" id="tuneSeg" role="group" aria-labelledby="tuneLbl"><button type="button" data-v="eigen">Eigenmode loop (default)</button><button type="button" data-v="port">circuitRF port tuning (low-pass, rungs a multiple of 4 only)</button></div>
+      <p class="note" id="tuneNote"></p>
+      <details><summary>How port tuning works</summary>
+        <figure class="shot" style="margin-top:8px"><img src="img/circuitrf-tuning-process.png" alt="Tuning with circuitRF: Palace solves the bare coil as four eighth models, the S-matrix is assembled, circuitRF tunes the capacitors and the feed, and a Palace z-half eigen solve checks the result; the eigenmode loop is shown beside it" loading="lazy" width="1600" height="1000"></figure>
+        <p class="note">Step-by-step guide, netlist reference and install notes: <a href="https://github.com/benjhardy/birdcage-palace/blob/main/docs/circuitrf-tuning.md">docs/circuitrf-tuning.md</a>. circuitRF: <a href="https://github.com/potatobeanradio/circuitRF">github.com/potatobeanradio/circuitRF</a> (MIT), tested with 1.0.9.</p>
+      </details>
+    </div>
     <div class="row"><button class="btn primary" id="goBtn" type="button">Open in Palace and begin tuning</button><span class="status" id="goStatus" aria-live="polite"></span></div>
     <div class="grid2">
       <div class="grp">
@@ -557,7 +566,7 @@ const Spec = (() => {
     type: 'lowpass', b0: 3.0, shield_mode: 'with', shielded: true, shield: 0.34, shield_length: null, shield_ends: 'pec',
     c_leg: null, c_ring: null, bandpass_ratio: 1.0, phantom: false, phantom_radius: 0.08, phantom_length: 0.20,
     phantom_eps: 78.0, phantom_sigma: 0.6, mesh: 'production', h_coil: 0.005, h_gap: 0.0025, h_max: 0.035,
-    order: 2, modes: 20, symmetry: 'none', np: 4, tol: 0.005, max_iter: 4 };
+    order: 2, modes: 20, symmetry: 'none', np: 4, tol: 0.005, max_iter: 4, tune_method: 'eigen' };
   const MESH = { production: [0.005, 0.0025, 0.035], coarse: [0.008, 0.004, 0.040] };
   const short = { lowpass: 'lp', highpass: 'hp', bandpass: 'bp' };
   const label = { lowpass: 'low-pass', highpass: 'high-pass', bandpass: 'band-pass' };
@@ -584,6 +593,21 @@ const Spec = (() => {
     return `${short[s.type]}${s.legs}_d${Math.round(s.diameter * 100)}_${b}T` + (s.mesh === 'production' ? '' : '_' + s.mesh) +
       (s.symmetry !== 'none' ? '_' + s.symmetry : '') + (s.shielded ? '' : '_noshield');
   }
+  // circuitRF port tuning (docs/circuitrf-tuning.md): '' when the design can use it, else the reason
+  function portReason(s) {
+    if (s.type !== 'lowpass') return 'it needs the low-pass coil (the symmetry assembly of the S-matrix is implemented for rung capacitors only).';
+    if (!Number.isInteger(s.legs) || s.legs % 4) return 'it needs a multiple of 4 rungs (the four PEC/PMC eighth models need the planes between rungs).';
+    if (s.shield_mode !== 'with') return 'it is set up for the shielded coil only (a closed shield keeps the N-port lossless).';
+    if (s.shield_ends !== 'pec') return 'it is set up for the closed PEC shield can only.';
+    if (s.phantom) return 'the package tunes the empty coil; the loaded port tune in the README was run by hand.';
+    return '';
+  }
+  const portMode = s => s.tune_method === 'port' && !portReason(s);
+  // port tuning: case prefix (the four port cases are <prefix>_em/_me/_mm/_ee)
+  const portName = s => caseName(Object.assign({}, s, { symmetry: 'none' })) + '_pt';
+  // the eighth model the four port cases copy their mesh from, and the z-half model of the Palace check
+  const portBase = s => Object.assign({}, s, { symmetry: 'eighth', modes: 10 });
+  const portZhalf = s => Object.assign({}, s, { symmetry: 'zhalf', modes: 4 });
   // [errors, warnings]: each {f: field id or '', m: message}
   function check(s) {
     const E = [], W = [], e = (f, m) => E.push({ f, m }), w = (f, m) => W.push({ f, m });
@@ -664,12 +688,16 @@ const Spec = (() => {
   }
   function specJson(s, lad, est, when) {
     const build = {};
-    for (const [k, v] of buildArgs(s)) build[k.replace(/-/g, '_')] = v === null ? true : v;
-    build.out = 'runs/' + caseName(s);
+    for (const [k, v] of buildArgs(portMode(s) ? portBase(s) : s)) build[k.replace(/-/g, '_')] = v === null ? true : v;
+    build.out = 'runs/' + (portMode(s) ? portName(s) + '_base' : caseName(s));
     const pf = c => c == null ? null : +(c * 1e12).toFixed(4);
     const sp = lad.used.spectrum;
     return { schema: 'birdcage-palace/spec-1', generated_by: 'https://benjhardy.github.io/birdcage-builder/', generated: when,
-      title: title(s), case: caseName(s), shield_mode: s.shield_mode, build,
+      title: title(s), case: portMode(s) ? portName(s) + '_base' : caseName(s), shield_mode: s.shield_mode, build,
+      tune_method: portMode(s) ? 'circuitrf-port' : 'eigenmode-loop',
+      porttune: portMode(s) ? { guide: 'https://github.com/benjhardy/birdcage-palace/blob/main/docs/circuitrf-tuning.md',
+        cases: ['em', 'me', 'mm', 'ee'].map(c => `runs/${portName(s)}_${c}`), esr_ohm: 0.68, band_khz: 2, r_ref_ohm: 500,
+        circuitrf: '1.0.9 (MIT), https://github.com/potatobeanradio/circuitRF' } : undefined,
       tune: { np: s.np, tol: s.tol, max_iter: s.max_iter },
       load: s.phantom ? Object.fromEntries(loadArgs(s).map(([k, v]) => [k.replace(/-/g, '_'), v])) : undefined,
       compare: s.shield_mode === 'both' ? cases(s).map(c => 'runs/' + caseName(c)) : undefined,
@@ -685,7 +713,8 @@ const Spec = (() => {
   function title(s) {
     return `${s.legs}-rung ${label[s.type]} birdcage, D ${fmt(s.diameter * 100)} cm, L ${fmt(s.length * 100)} cm, ${fmt(s.b0)} T`;
   }
-  return { DEFAULTS, MESH, toDesign, caseName, check, buildArgs, buildCmd, specJson, title, label, fmt, shieldLen, airBox, cases, loadArgs, LOAD };
+  return { DEFAULTS, MESH, toDesign, caseName, check, buildArgs, buildCmd, specJson, title, label, fmt, shieldLen, airBox, cases, loadArgs, LOAD,
+    portReason, portMode, portName, portBase, portZhalf };
 })();
 
 const Cost = (() => {
@@ -694,7 +723,7 @@ const Cost = (() => {
   // is below 12 cm), ring circumference, number of capacitor gaps, domain volume.
   const TET = { coarse: [14372.3, 23579.0, 492.1, 114063.7], production: [36610.7, 46721.1, 1186.1, 185700.0] };
   const UPT = { 1: 1.28, 2: 6.65, 3: 19.6 };          // unknowns per tetrahedron: measured (o1 coarse, o2 all, o3 eighth)
-  const SYM = { none: 1, quarter: 0.262, eighth: 0.135 }; // tets in the reduced model / full (measured, production)
+  const SYM = { none: 1, quarter: 0.262, eighth: 0.135, zhalf: 0.513 }; // tets in the reduced model / full (measured, production)
   const REF = { u: 1124818, s: 683, gb: 16.6 };        // full LP16 production run on a free machine, 20 modes, 4 ranks
   const OMUL = { 1: 1.8, 2: 1, 3: 1 };                 // order-1 runs took longer per unknown than the o2 law
   function feats(s) {
@@ -727,8 +756,19 @@ const Cost = (() => {
       tLo: t * tm, tHi: t * 1.8 * tm, tuneLo: 2 * t * tm, tuneHi: 4 * t * 1.8 * tm, loadLo: ld * t * tm, loadHi: ld * t * 1.8 * tm,
       rough, lossy, mem };
   }
+  // circuitRF port tuning: four driven eighth-model runs with N/4 excitations each, then two z-half eigen solves.
+  // Measured (LP16, production density, 0.16 M unknowns): 33 min for the four unloaded runs on a shared CPU, i.e.
+  // about 12 eighth-model eigen solves (41 s) per run, 3 per excitation; circuitRF 102 + 28 evaluations in 24 s.
+  // z-half check: 0.58 M unknowns, 2.3 min. lo/hi: 1.8 and 3.2 eigen solves per excitation.
+  function portTune(s) {
+    const e8 = estimate(Spec.portBase(s)), ez = estimate(Spec.portZhalf(s)), nx = s.legs / 4;
+    return { e8, ez, runLo: 1.8 * nx * e8.tLo, runHi: 3.2 * nx * e8.tLo, crfLo: 20, crfHi: 120,
+      lo: 4 * 1.8 * nx * e8.tLo + 2 * ez.tLo + 20, hi: 4 * 3.2 * nx * e8.tLo + 2 * ez.tHi + 120,
+      memHi: Math.max(e8.memHi * 1.2, ez.memHi) };
+  }
   // every case of the package (with / without / both) plus the load step
   function total(s) {
+    if (Spec.portMode(s)) { const p = portTune(s); return { es: [p.e8], lo: p.lo, hi: p.hi, memHi: p.memHi, port: p }; }
     const es = Spec.cases(s).map(estimate);
     const sum = k => es.reduce((a, e) => a + e[k], 0);
     return { es, lo: sum('tuneLo') + sum('loadLo'), hi: sum('tuneHi') + sum('loadHi'), memHi: Math.max(...es.map(e => e.memHi)) };
@@ -744,7 +784,7 @@ const Cost = (() => {
     ['LP16, coarse, o1, full', '92 k', '1.4 GB', '3.0 min', 'README'],
     ['HP16, coarse, o1, full (3 ranks)', '0.10 M', '–', '1.0–2.2 min', 'hp16_coarse, hp16_3T'],
   ];
-  return { estimate, total, ANCHORS };
+  return { estimate, total, portTune, ANCHORS };
 })();
 
 const Pkg = (() => {
@@ -765,10 +805,11 @@ const Pkg = (() => {
     const cmp = blocks.length > 1 ? `runs/${Spec.caseName(cs[0])}_compare.json` : null;
     return { blocks, compare: cmp ? `${bin} compare --cases ${blocks.map(b => b.name).join(' ')} --out ${cmp}` : null, cmpFile: cmp };
   }
-  function commands(s, bin) { const p = plan(s, bin); return p.blocks.flatMap(b => [b.build, b.solve, b.modes, b.tune].concat(b.load ? [b.load] : [])).concat(p.compare ? [p.compare] : []); }
+  function commands(s, bin) { if (Spec.portMode(s)) return portCommands(s, bin); const p = plan(s, bin); return p.blocks.flatMap(b => [b.build, b.solve, b.modes, b.tune].concat(b.load ? [b.load] : [])).concat(p.compare ? [p.compare] : []); }
   function shortCommands(s) {
     return [`python3 -m venv ~/.venvs/birdcage-palace && . ~/.venvs/birdcage-palace/bin/activate`,
-      `pip install "git+${REPO}"`, `NP=${s.np}`, ...commands(s, 'birdcage')].join('\n');
+      `pip install "git+${REPO}"`, ...(Spec.portMode(s) ? [`# circuitRF ${CRF.version} (MIT): install from ${CRF.url}/releases (see README.md in the zip)`] : []),
+      `NP=${s.np}`, ...commands(s, 'birdcage')].join('\n');
   }
   function runSh(s, lad, est, when) {
     const p = plan(s), nb = p.blocks.length, tot = Cost.total(s);
@@ -843,13 +884,15 @@ echo "done: ${p.blocks.map(b => b.name + '/tune_summary.json').join(', ')}${p.cm
   }
   function runPs1(s) {
     return `# Runs run.sh inside WSL2 (Palace runs in Linux). Written by the birdcage builder.
-# Usage: powershell -ExecutionPolicy Bypass -File run.ps1 [-Distro Ubuntu-24.04] [-Np ${s.np}] [-StopAfter build|solve|modes]
-param([string]$Distro = "Ubuntu-24.04", [int]$Np = ${s.np}, [string]$StopAfter = "")
+# Usage: powershell -ExecutionPolicy Bypass -File run.ps1 [-Distro Ubuntu-24.04] [-Np ${s.np}] [-StopAfter ${Spec.portMode(s) ? 'build|ports|assemble|tune' : 'build|solve|modes'}]
+# -Distro: the WSL distribution (default: the WSL default distribution, see wsl --list --verbose)
+param([string]$Distro = "", [int]$Np = ${s.np}, [string]$StopAfter = "")
 $ErrorActionPreference = "Stop"
 $here = (Split-Path -Parent $MyInvocation.MyCommand.Path) -replace '\\\\', '/'
-$wslDir = (wsl -d $Distro -- wslpath -a "$here").Trim()
+$d = @(); if ($Distro) { $d = @('-d', $Distro) }
+$wslDir = (wsl @d -- wslpath -a "$here").Trim()
 if (-not $wslDir) { throw "WSL distribution '$Distro' not found (wsl --list --verbose)" }
-wsl -d $Distro -- bash -lc "cd '$wslDir' && NP=$Np STOP_AFTER='$StopAfter' bash run.sh"
+wsl @d -- bash -lc "cd '$wslDir' && NP=$Np STOP_AFTER='$StopAfter' bash run.sh"
 exit $LASTEXITCODE
 `;
   }
@@ -940,6 +983,7 @@ See ${REPO}#limits.
 `;
   }
   function prompt(s, lad) {
+    if (Spec.portMode(s)) return promptPort(s, lad);
     const p = plan(s, 'birdcage');
     const pf = x => x == null ? null : (x * 1e12).toFixed(2) + ' pF';
     const guess = [pf(lad.first.c_leg) && 'rung ' + pf(lad.first.c_leg), pf(lad.first.c_ring) && 'ring ' + pf(lad.first.c_ring)].filter(Boolean).join(', ');
@@ -957,14 +1001,240 @@ ${steps}${p.compare ? `\n${n++}. ${p.compare}` : ''}
 
 Report from tune_summary.json and modes.json${p.compare ? ' and the compare file' : ''}: k = 1 frequency (both members and the split), the final C per gap, the ladder first guess and the Palace k = 1 at that guess, ROI std/mean of |B1| (one mode) and of the quadrature B1+, Q of k = 1${s.phantom ? ', the loaded block (shift, Q_phantom, Q_U, Q_L, Q_U/Q_L)' : ''}, unknowns, peak memory and wall time per solve. Simulation only: do not call any number measured.`;
   }
+  // ---- circuitRF port tuning (docs/circuitrf-tuning.md) ----
+  const GUIDE = REPO + '/blob/main/docs/circuitrf-tuning.md';
+  const CRF = { version: '1.0.9', url: 'https://github.com/potatobeanradio/circuitRF',
+    tar: 'https://github.com/potatobeanradio/circuitRF/releases/download/1.0.9/circuitRF-1.0.9-linux-x64.tar.gz',
+    sha256: '1f5c6012a31343acae8948b0b2cecbf43081bcc6ce8e98c87b64deccdef8a3fb' };
+  // first letter: plane x = 0, second: y = 0 (e = PEC, m = PMC); z = 0 is PEC in all four
+  const PORT_BC = [['em', 'x=pec,y=pmc,z=pec'], ['me', 'x=pmc,y=pec,z=pec'], ['mm', 'x=pmc,y=pmc,z=pec'], ['ee', 'x=pec,y=pec,z=pec']];
+  function portPlan(s, bin = '"$B"') {
+    const P = 'runs/' + Spec.portName(s), np = bin === 'birdcage' ? '$NP' : '"$NP"', N = s.legs;
+    const snpDir = `${P}_sparams`, snp = `${snpDir}/birdcage${N}.s${N}p`;
+    return { P, N, snp, snpDir,
+      build: Spec.buildCmd(Spec.portBase(s), bin, P + '_base', ' \\\n    '), buildOne: Spec.buildCmd(Spec.portBase(s), bin, P + '_base', ' '),
+      portcases: PORT_BC.map(([c, bc]) => `${bin} portcase --case ${P}_base --sym-bc ${bc} --out ${P}_${c}`),
+      solves: PORT_BC.map(([c]) => `${bin} solve --case ${P}_${c} --np ${np}`),
+      assemble: `${bin} porttune assemble --cases ${P} --out ${snp} --rotation-average`,
+      resonance: `${bin} porttune resonance --snp ${snp}`,
+      tune: `${bin} porttune tune --snp ${snp} --name unloaded --esr 0.68 --band-khz 2`,
+      zbuild: Spec.buildCmd(Spec.portZhalf(s), bin, P + '_zref', ' \\\n    '), zbuildOne: Spec.buildCmd(Spec.portZhalf(s), bin, P + '_zref', ' '),
+      zvariant: `${bin} variant --case ${P}_zref --c-rungs ${snpDir}/c_rungs_unloaded.json --out ${P}_ztuned`,
+      zsolves: ['zref', 'ztuned'].map(z => `${bin} solve --case ${P}_${z} --np ${np} && ${bin} modes --case ${P}_${z} --no-figs`),
+      verify: `${bin} porttune verify --snp ${snp} --ref-case ${P}_zref --tuned-case ${P}_ztuned --out ${snpDir}/verify.json` };
+  }
+  function portCommands(s, bin) {
+    const q = portPlan(s, bin);
+    return [q.buildOne, ...q.portcases, ...q.solves, q.assemble, q.resonance, q.tune, q.zbuildOne, q.zvariant, ...q.zsolves, q.verify];
+  }
+  const crfInstall = () => `mkdir -p ~/src/circuitrf && cd ~/src/circuitrf
+curl -LO ${CRF.tar}
+echo "${CRF.sha256}  circuitRF-${CRF.version}-linux-x64.tar.gz" | sha256sum -c -
+tar xzf circuitRF-${CRF.version}-linux-x64.tar.gz
+cd circuitRF-${CRF.version} && ./install.sh
+timeout 60 ~/.local/share/circuitRF/current/circuitRF --version    # prints ${CRF.version}`;
+  function runShPort(s, lad, est, when) {
+    const q = portPlan(s), tot = Cost.portTune(s);
+    return `#!/usr/bin/env bash
+# birdcage-palace port-tuning script (circuitRF), written by the birdcage builder (https://benjhardy.github.io/birdcage-builder/) ${when}
+# Design: ${Spec.title(s)}; f0 ${(lad.first.f_target_hz / 1e6).toFixed(3)} MHz
+# Method: Palace solves the bare coil (every rung gap a port) as four eighth models with PEC/PMC planes; the
+#   ${q.N}-port S-matrix is rebuilt from them; circuitRF closes the gaps with C + ESR, adds the capacitive-divider
+#   feed and tunes it (minimax) for |S11|, |S22|, |S21| <= -20 dB at f0; a Palace z-half eigen solve checks the result.
+#   Guide: ${GUIDE}
+# Mesh: ${s.mesh} (strip edge ${Spec.fmt(s.h_coil * 1000)} mm, gap ${Spec.fmt(s.h_gap * 1000)} mm, bulk ${Spec.fmt(s.h_max * 1000)} mm), order ${s.order}
+# Estimate: each of the 4 port runs ${range(tot.runLo, tot.runHi)}; whole script ${range(tot.lo, tot.hi)} on 4 ranks
+#
+# Usage:  bash run.sh            (Linux or WSL2)
+# Env:    NP=${s.np}  ranks          VENV=~/.venvs/birdcage-palace
+#         STOP_AFTER=build|ports|assemble|tune   stop early
+#         BIRDCAGE_PALACE_CMD="palace -np {np} {cfg}"   Palace launcher (auto-detected below)
+#         PALACE_SIF=/path/palace.sif                    Apptainer image, if Palace is not on the PATH
+#         BIRDCAGE_CIRCUITRF=/path/to/circuitRF          circuitRF executable (auto-detected below)
+#         INSTALL_CIRCUITRF=1                            download circuitRF ${CRF.version} and install it into ~/.local if missing
+#         SKIP_VERIFY=1                                  skip the two Palace z-half check solves
+#         BIRDCAGE_PIP="git+${REPO}"   package source
+set -euo pipefail
+cd "$(dirname "$0")"
+NP=\${NP:-${s.np}}
+VENV=\${VENV:-$HOME/.venvs/birdcage-palace}
+PKG=\${BIRDCAGE_PIP:-git+${REPO}}
+STOP_AFTER=\${STOP_AFTER:-}
+T0=$(date +%s)
+
+echo "== 1/8 Python environment: $VENV"
+command -v python3 >/dev/null || { echo "python3 not found (sudo apt install python3 python3-venv git)" >&2; exit 1; }
+[ -x "$VENV/bin/python" ] || python3 -m venv "$VENV"
+"$VENV/bin/python" -m pip install -q --upgrade pip
+"$VENV/bin/python" -m pip install -q --upgrade "$PKG"
+B="$VENV/bin/birdcage"
+"$B" --version
+
+echo "== 2/8 Palace launcher"
+if [ -z "\${BIRDCAGE_PALACE_CMD:-}" ]; then
+  if command -v run_palace >/dev/null; then BIRDCAGE_PALACE_CMD='run_palace {cfg} {np}'
+  elif command -v palace >/dev/null; then BIRDCAGE_PALACE_CMD='palace -np {np} {cfg}'
+  elif [ -n "\${PALACE_SIF:-}" ]; then BIRDCAGE_PALACE_CMD="apptainer run $PALACE_SIF -np {np} {cfg}"
+  elif [ "$STOP_AFTER" != build ]; then
+    echo "Palace not found. Install it (https://awslabs.github.io/palace/stable/install/) and put 'palace' on the PATH," >&2
+    echo "or set PALACE_SIF=/path/palace.sif, or BIRDCAGE_PALACE_CMD. STOP_AFTER=build runs the build only." >&2
+    exit 1
+  fi
+fi
+export BIRDCAGE_PALACE_CMD="\${BIRDCAGE_PALACE_CMD:-}"
+echo "Palace: $BIRDCAGE_PALACE_CMD  (ranks: $NP)"
+
+echo "== 3/8 circuitRF"
+CRF="\${BIRDCAGE_CIRCUITRF:-}"
+if [ -z "$CRF" ]; then
+  CRF="$(command -v circuitRF || command -v circuitrf || true)"
+  if [ -z "$CRF" ] && [ -x "$HOME/.local/share/circuitRF/current/circuitRF" ]; then CRF="$HOME/.local/share/circuitRF/current/circuitRF"; fi
+fi
+if [ -z "$CRF" ] && [ "\${INSTALL_CIRCUITRF:-}" = 1 ]; then
+  echo "installing circuitRF ${CRF.version} (MIT, ${CRF.url}) into ~/.local"
+  ( ${crfInstall().replace(/ +# prints .*$/m, '').split('\n').join('\n    ')} )
+  CRF="$HOME/.local/share/circuitRF/current/circuitRF"
+fi
+if [ -z "$CRF" ]; then
+  case "$STOP_AFTER" in
+    build|ports|assemble) echo "circuitRF not found (needed from step 7 on)";;
+    *) echo "circuitRF not found. Install ${CRF.version} (MIT, ${CRF.url}), about 106 MB:" >&2
+       echo "  curl -LO ${CRF.tar}" >&2
+       echo "  tar xzf circuitRF-${CRF.version}-linux-x64.tar.gz && (cd circuitRF-${CRF.version} && ./install.sh)" >&2
+       echo "or run INSTALL_CIRCUITRF=1 bash run.sh, or set BIRDCAGE_CIRCUITRF=/path/to/circuitRF. See README.md." >&2
+       exit 1;;
+  esac
+else
+  echo "circuitRF: $CRF, version $(timeout 60 "$CRF" --version </dev/null 2>/dev/null || echo unknown)"
+  export BIRDCAGE_CIRCUITRF="$CRF"
+fi
+
+echo "== 4/8 build the eighth model (planes x = 0, y = 0, z = 0 between rungs) at the ladder first guess"
+${q.build}
+[ "$STOP_AFTER" = build ] && exit 0
+
+echo "== 5/8 four port cases (every rung gap a 500 ohm port, driven sweep), then Palace on each"
+${q.portcases.join('\n')}
+${q.solves.join('\n')}
+[ "$STOP_AFTER" = ports ] && exit 0
+
+echo "== 6/8 assemble the ${q.N}-port from the four cases and check the resonance with one C on every gap"
+${q.assemble}
+${q.resonance}
+[ "$STOP_AFTER" = assemble ] && exit 0
+
+echo "== 7/8 circuitRF: C + 0.68 ohm ESR on every gap, capacitive-divider feed on rungs 0 and ${q.N / 4}, minimax to -20 dB"
+${q.tune}
+[ "$STOP_AFTER" = tune ] && exit 0
+
+if [ "\${SKIP_VERIFY:-}" != 1 ]; then
+echo "== 8/8 Palace check: z-half eigen solves at the ladder C and with the tuned set (feeds disconnected)"
+${q.zbuild}
+${q.zvariant}
+${q.zsolves.join('\n')}
+${q.verify}
+fi
+echo "done in $(( $(date +%s) - T0 )) s: ${q.snpDir}/circuitrf/tune_unloaded.json and tune_unloaded.cnl (tuned netlist), ${q.snpDir}/c_rungs_unloaded.json, ${q.snpDir}/verify.json"
+`;
+  }
+  function readmePort(s, lad, est, when) {
+    const q = portPlan(s, 'birdcage'), tot = Cost.portTune(s);
+    const pf = c => c == null ? '-' : (c * 1e12).toFixed(3) + ' pF';
+    return `# ${Spec.title(s)}: port tuning with circuitRF
+
+Package written by the birdcage builder (https://benjhardy.github.io/birdcage-builder/) ${when}.
+Cases: ${q.P}_base, ${q.P}_{em,me,mm,ee}, ${q.snpDir}. Simulation only.
+Step-by-step guide (what each command and each netlist line does): ${GUIDE}
+
+| | |
+|---|---|
+| f0 (1H, 42.577 MHz/T x ${Spec.fmt(s.b0)} T) | ${(lad.first.f_target_hz / 1e6).toFixed(3)} MHz |
+| ladder first guess, C per rung gap | ${pf(lad.first.c_leg)} |
+| C the coil is built with (reference for the "before" sweep) | ${pf(lad.used.c_leg)} |
+| shield | ${shieldText(s)} |
+| mesh | ${s.mesh}: strip edge ${Spec.fmt(s.h_coil * 1000)} mm, gap ${Spec.fmt(s.h_gap * 1000)} mm, bulk ${Spec.fmt(s.h_max * 1000)} mm; order ${s.order} |
+| port runs | 4 eighth models (x = 0 / y = 0 PEC or PMC, z = 0 PEC), ${s.legs / 4} excitations each, 500 ohm ports |
+| estimate, one port run (${s.np} ranks) | ~${(tot.e8.unknowns / 1e6).toFixed(2)} M unknowns, ${range(tot.runLo, tot.runHi)} |
+| estimate, z-half check (2 eigen solves) | ~${(tot.ez.unknowns / 1e6).toFixed(2)} M unknowns, ${range(2 * tot.ez.tLo, 2 * tot.ez.tHi)} |
+| estimate, whole run.sh | ${range(tot.lo, tot.hi)} |
+
+Reference (README, 16-rung coil, production density): the four unloaded port runs took 33 min of Palace time on a
+shared CPU; circuitRF needed 102 + 28 evaluations (24 s); the eigenmode loop needs one 3D solve per C change.
+
+## Requirements
+
+- Linux or Windows with WSL2 (tested: Ubuntu 24.04 in WSL2).
+- Palace 0.16 or newer: https://awslabs.github.io/palace/stable/install/ (\`palace\` on the PATH, or
+  \`export PALACE_SIF=/path/to/palace.sif\`, or \`export BIRDCAGE_PALACE_CMD="mpirun -np {np} palace {cfg}"\`).
+- Python 3.10+ with venv and git: \`sudo apt install python3-venv git\`. Gmsh comes from pip; it needs
+  \`sudo apt install libglu1-mesa libxcursor1 libxft2 libxinerama1\` even when headless.
+- circuitRF ${CRF.version} (MIT licence, ${CRF.url}). Linux x64 install, no root, into ~/.local:
+
+      ${crfInstall().split('\n').join('\n      ')}
+
+  \`run.sh\` finds it on the PATH (\`circuitrf\`) or in ~/.local/share/circuitRF/current/; \`INSTALL_CIRCUITRF=1 bash run.sh\`
+  runs the lines above for you; \`BIRDCAGE_CIRCUITRF=/path/to/circuitRF\` points at another copy. In 1.0.9,
+  \`circuitRF --help\` starts the GUI and waits: use \`--version\` and the docs in
+  ~/.local/share/circuitRF/current/docs/user/reference/cli.html. Newer releases exist; this package was tested with ${CRF.version}.
+
+## Run
+
+    bash run.sh                                   # Linux / WSL
+    powershell -ExecutionPolicy Bypass -File run.ps1   # Windows: runs run.sh in WSL
+
+Options: \`NP=8\`, \`STOP_AFTER=build|ports|assemble|tune\`, \`SKIP_VERIFY=1\`, \`VENV=...\`.
+
+## Commands in run.sh
+
+    ${portCommands(s, 'birdcage').join('\n    ')}
+
+1. \`birdcage build --symmetry eighth\`: Gmsh mesh of one eighth of the coil (planes between rungs, ${s.legs / 4} rungs per quarter).
+2. \`birdcage portcase\` x 4: the same mesh, every rung gap a 500 ohm lumped port, a driven sweep; one case per
+   PEC/PMC combination of the x = 0 and y = 0 planes.
+3. \`birdcage solve\` x 4: Palace driven runs (MUMPS, MGMaxLevels 1).
+4. \`birdcage porttune assemble\`: the full ${s.legs}-port from the four cases (character orthogonality, birdcage_palace/sparams.py).
+5. \`birdcage porttune resonance\`: k = 1 with the build C on every gap, and the one C that puts k = 1 on f0.
+6. \`birdcage porttune tune\`: circuitRF \`opt\` twice (rotation-averaged matrix, then the matrix as solved) and \`sparam\`
+   sweeps before and after. The tuned netlist is ${q.snpDir}/circuitrf/tune_unloaded.cnl: open it in a text editor,
+   change a goal, the ESR or the feed, and run \`circuitRF opt tune_unloaded.cnl --json\` in that folder (guide, step 8).
+7. Palace check: the z-half model (all ${s.legs} rungs, z = 0 PEC) at the build C and with the tuned set
+   (\`variant --c-rungs\`, feeds disconnected); \`porttune verify\` compares the shift with the ${s.legs}-port prediction.
+
+## Results
+
+- ${q.snpDir}/birdcage${s.legs}.s${s.legs}p (+ _sym, .json): the bare-coil S-matrix, 500 ohm reference
+- ${q.snpDir}/birdcage${s.legs}_resonance.json: k = 1 at the build C and the C for f0
+- ${q.snpDir}/circuitrf/tune_unloaded.json: tuned values, goals, S at f0, sweeps; tune_unloaded.cnl: the tuned netlist
+- ${q.snpDir}/c_rungs_unloaded.json: C across each gap with the feeds disconnected (for \`variant --c-rungs\`)
+- ${q.snpDir}/verify.json: Palace z-half vs the ${s.legs}-port prediction
+
+Limits: low-pass coil, a multiple of 4 rungs, symmetry planes between rungs, shielded and empty. Lossless PEC strips;
+the capacitor ESR (0.68 ohm) is the only loss, and the ports are single-ended across each gap (no balun, no cable).
+See ${REPO}#limits.
+`;
+  }
+  function promptPort(s, lad) {
+    const cmds = portCommands(s, 'birdcage').map(c => c.replace(/\$NP/g, s.np));
+    return `Tune this MRI birdcage coil with circuitRF port tuning, using birdcage-palace (${REPO}) and the guide ${GUIDE}. Use palace-agent-tools (https://github.com/benjhardy/palace-agent-tools) to lint each Palace config and check the cost before each solve.
+
+Coil: ${Spec.title(s)}. Shield: ${shieldText(s)}. Target: k = 1 at f0 = ${(lad.first.f_target_hz / 1e6).toFixed(3)} MHz (1H). Ladder first guess: ${(lad.first.c_leg * 1e12).toFixed(2)} pF per rung.
+
+1. pip install "git+${REPO}" in a fresh venv. Install circuitRF ${CRF.version} (MIT, ${CRF.url}) from its release tarball into ~/.local (README of the package). In 1.0.9, circuitRF --help opens the GUI and waits: use --version.
+${cmds.map((c, i) => `${i + 2}. ${c}`).join('\n')}
+
+Keep MUMPS with "MGMaxLevels": 1 and run Palace in the foreground. Report: k = 1 at the build C (from the ${s.legs}-port), the single C for f0, the tuned Ct, Ci, Cd, Cp, Cm, |S11|, |S22|, |S21| at f0 and the worst over the band, circuitRF evaluations, the z-half Palace shift vs the prediction, unknowns and wall time per Palace run. Simulation only: do not call any number measured.`;
+  }
   function files(s, lad, est, when) {
+    if (Spec.portMode(s)) return { 'spec.json': JSON.stringify(Spec.specJson(s, lad, est, when), null, 1) + '\n',
+      'run.sh': runShPort(s, lad, est, when), 'run.ps1': runPs1(s).replace(/\n/g, '\r\n'), 'README.md': readmePort(s, lad, est, when) };
     const f = { 'spec.json': JSON.stringify(Spec.specJson(Spec.cases(s)[0], lad, est, when), null, 1) + '\n', 'run.sh': runSh(s, lad, est, when),
       'run.ps1': runPs1(s).replace(/\n/g, '\r\n'), 'README.md': readme(s, lad, est, when) };
     // Both: a second spec for the unshielded case (birdcage build --spec spec_noshield.json gives that case)
     if (s.shield_mode === 'both') f['spec_noshield.json'] = JSON.stringify(Spec.specJson(Spec.cases(s)[1], lad, est, when), null, 1) + '\n';
     return f;
   }
-  return { files, shortCommands, prompt, commands, plan };
+  const dirName = s => 'birdcage_' + (Spec.portMode(s) ? Spec.portName(s) : Spec.caseName(s));
+  return { files, shortCommands, prompt, commands, plan, portPlan, portCommands, dirName, CRF, GUIDE };
 })();
 </script>
 
@@ -1018,6 +1288,9 @@ function writeInputs() {
   $('#order').value = String(S.order); $('#symmetry').value = S.symmetry;
   S.shielded = S.shield_mode !== 'without';
   setSeg('.shieldSeg', S.shield_mode); $('#phantom').checked = S.phantom;
+  const pr = Spec.portReason(S), pb = $('#tuneSeg button[data-v="port"]');
+  pb.disabled = !!pr; pb.title = pr ? 'Not for this design: ' + pr : '';
+  setSeg('#tuneSeg', Spec.portMode(S) ? 'port' : 'eigen');
   setSeg('#typeSeg', S.type); setSeg('#endsSeg', S.shield_ends); setSeg('#meshSeg', S.mesh);
   $$('#b0Chips button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === S.b0)));
   $('#shieldFields').hidden = S.shield_mode === 'without'; $('#phFields').hidden = !S.phantom; $('#bpField').hidden = S.type !== 'bandpass';
@@ -1064,6 +1337,11 @@ function compute() {
   $('#pkgShieldNote').textContent = { with: 'With shield: one case, the coil inside the shield set above. The eigenproblem is real and lossless.',
     without: `Without shield: one case in ${abTxt}. Palace solves a complex eigenproblem and reports the radiation Q of k = 1. In our package test (coarse mesh) an unshielded solve took 4–5 min against 0.6 min shielded.`,
     both: `Both: run.sh builds, solves and tunes the shielded case and then the unshielded one (${abTxt}) on the same mesh settings, and birdcage compare writes the k = 1 shift at the same C, the two tuned capacitors, the Q and the B1+ homogeneity.` }[S.shield_mode];
+  const pr = Spec.portReason(S), N = S.legs;
+  $('#tuneNote').textContent = Spec.portMode(S)
+    ? `circuitRF port tuning: Palace solves the bare coil once, as four eighth models (PEC/PMC planes, ${N / 4} gap ports each); the ${N}-port S-matrix is assembled; circuitRF closes the gaps with C + 0.68 Ω ESR, adds the capacitive-divider feed on rungs 0 and ${N / 4} and tunes it (minimax) for |S11|, |S22|, |S21| ≤ −20 dB at f0; a Palace z-half eigen solve checks the result. Each C change costs a circuit evaluation (seconds), not a 3D solve. Needs circuitRF 1.0.9 (MIT); the README in the zip has the install lines.`
+    : 'Eigenmode loop: Palace eigen solve at the ladder first guess, then secant steps on 1/f² with one 3D solve per C change until k = 1 is within the tolerance.' +
+      (pr ? ' Port tuning is not available for this design: ' + pr : ' Port tuning with circuitRF is also available for this design.');
   $('#phNote').textContent = S.phantom ? 'The tune runs with this region filled with air; birdcage load then sets εr and σ on the same mesh (C not retuned) and reports the shift, the B1+ map and Q_U, Q_L, Q_U/Q_L.' : '';
   renderReadout(); renderSpectrum(); renderCost(); renderPkgText(); draw3d();
   save();
@@ -1278,6 +1556,7 @@ function renderCost() {
     ['Peak memory', `${e.memLo}–${e.memHi} GB`, 'Palace, all ranks'], ['One solve', mm(e.tLo, e.tHi), `${S.modes} modes, 4 ranks`],
     ['Tune loop', mm(e.tuneLo, e.tuneHi), '2–4 solves']].concat(S.phantom || S.shield_mode === 'both' ? [['Whole package', mm(Cost.total(S).lo, Cost.total(S).hi),
       [S.shield_mode === 'both' ? '2 cases' : '', S.phantom ? 'tune + load' : 'tune'].filter(Boolean).join(', ')]] : [])
+    .concat(Spec.portMode(S) ? (q => [['Port run (×4)', mm(q.runLo, q.runHi), `eighth, ${S.legs / 4} excitations`], ['Port-tuning package', mm(q.lo, q.hi), '4 port runs, circuitRF, 2 checks']])(Cost.portTune(S)) : [])
     .map(([a, b, c]) => `<div><span>${a}</span><b>${b}</b><small>${c}</small></div>`).join('');
   let n = 'Estimate scaled from 8 measured Palace runs of 16-rung, 28 cm reference coils (4 production, 2 symmetry, 2 coarse).';
   if (e.rough) n += ' Custom mesh or phantom: rougher.';
@@ -1285,6 +1564,7 @@ function renderCost() {
   if (S.shield_mode === 'both') n += ' Both: the unshielded case has a larger air domain and a complex eigenproblem; the package total adds both tune loops.';
   if (S.phantom) n += ' Load step: three extra solves (lossy phantom, then the copper solves), scaled from eighth-model runs.';
   if (e.memHi > 28) n += ' More memory than the 32 GB machine of the measured runs: use the coarse mesh' + (S.type === 'lowpass' && S.legs % 4 === 0 ? ' or a symmetry model.' : '.');
+  if (Spec.portMode(S)) n += ' Port runs scaled from the 16-rung reference: its four unloaded eighth-model driven runs took 33 min (shared CPU), about 3 eighth-model eigen solves per excitation.';
   if (S.np !== 4) n += ` Times are for 4 ranks; ${S.np} ranks were not measured.`;
   $('#costNote').textContent = n;
 }
@@ -1309,7 +1589,7 @@ function saveBlob(blob, name) {
 let lastZip = null;
 async function makePackage() {
   if (ERRS.length) return;
-  const files = packageFiles(), dir = 'birdcage_' + Spec.caseName(S), st = $('#goStatus');
+  const files = packageFiles(), dir = Pkg.dirName(S), st = $('#goStatus');
   if (typeof JSZip === 'undefined') {
     for (const [n, t] of Object.entries(files)) saveBlob(new Blob([t], { type: 'text/plain' }), n);
     st.textContent = 'Zip library not loaded (offline?): saved the 4 files separately.'; st.className = 'status'; return;
@@ -1477,6 +1757,7 @@ function init() {
   $('#symmetry').addEventListener('change', e => { S.symmetry = e.target.value; compute(); });
   $$('.shieldSeg button').forEach(b => b.addEventListener('click', () => { S.shield_mode = b.dataset.v; writeInputs(); compute(); }));
   $('#phantom').addEventListener('change', e => { S.phantom = e.target.checked; writeInputs(); compute(); });
+  $$('#tuneSeg button').forEach(b => b.addEventListener('click', () => { if (b.disabled) return; S.tune_method = b.dataset.v; writeInputs(); compute(); }));
   const seg = (sel, f, after) => $$(sel + ' button').forEach(b => b.addEventListener('click', () => { S[f] = b.dataset.v; if (after) after(); writeInputs(); compute(); }));
   seg('#typeSeg', 'type', () => { if (S.type !== 'lowpass') S.symmetry = 'none'; });
   seg('#endsSeg', 'shield_ends');
