@@ -40,6 +40,7 @@ h1, h2, h3 { font-family: var(--display); line-height: 1.08; margin: 0; text-wra
 h1 { font-size: clamp(2rem, 4.6vw, 3rem); font-weight: 800; letter-spacing: -0.02em; }
 h2 { font-size: clamp(1.3rem, 2.6vw, 1.6rem); font-weight: 800; letter-spacing: -0.01em; }
 h3 { font-size: 1.05rem; font-weight: 600; }
+h3.sub { margin-top: 18px; font-size: 0.98rem; }
 p { margin: 0; }
 a { color: var(--accent); }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -105,6 +106,22 @@ input[type=checkbox] { accent-color: var(--ink); width: 16px; height: 16px; marg
 .readout b { display: block; font: 600 1rem/1.3 var(--mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .readout small { font: 500 0.72rem/1.3 var(--mono); color: var(--muted); }
 #spec { display: block; width: 100%; aspect-ratio: 16 / 7; }
+.specwrap { position: relative; }
+.tip { position: absolute; z-index: 2; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: 500 0.74rem/1.4 var(--mono); color: var(--ink); box-shadow: 0 2px 10px rgba(0,0,0,0.12); max-width: 260px; }
+.specleg { padding: 8px 12px 0; border-top: 1px solid var(--line); }
+.specleg .note { margin: 6px 0 0; }
+.cbcap { font: 600 0.76rem/1.35 var(--mono); color: var(--ink); }
+.cbar { max-width: 420px; }
+.cbar i { display: block; height: 10px; border-radius: 3px; margin-top: 4px; }
+.cbar .ticks { position: relative; height: 16px; font: 500 0.7rem/16px var(--mono); color: var(--muted); }
+.cbar .ticks span { position: absolute; transform: translateX(-50%); }
+.cbar .ticks span:first-child { transform: none; }
+.cbar .ticks span:last-child { transform: translateX(-100%); }
+.keys { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 4px; font: 500 0.76rem/1.35 var(--mono); color: var(--muted); }
+.keys span { display: inline-flex; align-items: center; gap: 6px; }
+.sym { display: inline-block; flex: none; width: 10px; height: 10px; }
+.sym.ring { width: 12px; height: 12px; border-radius: 50%; border: 2.5px solid var(--field); }
+.sym.dia { transform: rotate(45deg) scale(0.85); border: 1.5px solid var(--ink); background: #5ec962; }
 @media (max-width: 640px) { #spec { aspect-ratio: 4 / 3; } }
 .msgs { display: grid; gap: 6px; }
 .msg { font-size: 0.86rem; border-radius: 8px; padding: 8px 10px; border: 1px solid var(--line); background: var(--bg); }
@@ -171,7 +188,8 @@ footer.foot a { color: var(--muted); }
 
       <div class="card">
         <div class="vbar"><h3>Ladder-model spectrum</h3><span class="status" id="specNote"></span></div>
-        <canvas id="spec" role="img" aria-label="Mode frequencies from the ladder model with the Larmor frequency marked"></canvas>
+        <div class="specwrap"><canvas id="spec" role="img" aria-label="Mode frequencies from the ladder model with the Larmor frequency marked; each marker is coloured by the field uniformity of that mode"></canvas><div class="tip" id="specTip" hidden></div></div>
+        <div class="specleg" id="specLeg"></div>
         <div class="pad">
           <div class="readout" id="readout"></div>
           <details><summary>All modes (table)</summary><div class="tblwrap"><table class="ref" id="modeTbl"></table></div></details>
@@ -183,6 +201,10 @@ footer.foot a { color: var(--muted); }
         <p class="note">The ladder network is quasi-static. It leaves out the stray capacitance of the strips and the shield end caps, so its capacitor is a first guess. These are our Palace eigenmode results for the reference coil: 16 rungs, 28 cm diameter, 25 cm long, 34 cm closed shield, 3 T (127.7 MHz), no load. Simulation only.</p>
         <div class="tblwrap"><table class="ref" id="accTbl"></table></div>
         <p class="note" id="accNote"></p>
+        <h3 class="sub">Measured in Palace (16-rung, 3 T reference)</h3>
+        <p class="note">Field uniformity per mode: std/mean of the transverse |B| over r &lt; 0.6 R, |z| &lt; L/6 (CV, %), mean over each degenerate pair. The last column is this page's quasi-static estimate for the same coil.</p>
+        <div class="tblwrap"><table class="ref" id="uniTbl"></table></div>
+        <p class="note" id="uniNote"></p>
         <p class="note">Package test, 21 Oct 2026: a 12-rung high-pass coil, 24 cm diameter, 3 T, coarse mesh, order 1 (84 k unknowns), built from this page's package in a fresh venv. Ladder 24.29 pF per ring gap &rarr; Palace k = 1 at 134.18 MHz (+5.1 %). One tune step: 26.80 pF &rarr; 128.15 MHz (+0.33 %, inside the 0.5 % tolerance). Two Palace solves of 40 s each on 4 ranks; quadrature B1+ ROI std/mean 2.3 %.</p>
         <p class="note">Package test "Both", 21 Oct 2026: the reference 16-rung low-pass coil, coarse mesh, order 1, from this page's zip in a fresh venv (15.5 min in all). With the shield: 2.807 pF &rarr; 112.98 MHz, tuned 1.8635 pF &rarr; 127.714 MHz. Without: 1.804 pF &rarr; 107.49 MHz, tuned 0.9369 pF &rarr; 127.706 MHz, radiation Q 83. Removing the shield at the same C moves k = 1 by &minus;16.7 %. The unshielded air box has to reach about &lambda;0/4 past the coil: a box 15 cm out gave a radiation Q of 18 (<a href="https://github.com/benjhardy/birdcage-palace/blob/main/results/unshielded_airbox_check.json">air-box check</a>).</p>
         <p class="note">This is why the package does not stop at the ladder value. It solves the coil in Palace at the first guess, then <span class="mono">birdcage tune</span> takes secant steps on 1/f² (linear in C) on the same mesh until k = 1 is within the tolerance of f0. Numbers from <a href="https://github.com/benjhardy/birdcage-palace/tree/main/results">results/lp16_3T.json, hp16_3T.json, bp16_3T.json</a>.</p>
@@ -436,6 +458,99 @@ const Ladder = (() => {
   return { analytic, design, inductanceSpectrum, modeFrequencies, capacitorForTarget, GAMMA_BAR_1H };
 })();
 
+// Quasi-static field uniformity of each ladder mode: a line-by-line port of birdcage_palace/uniformity.py.
+// Kirchhoff mesh currents (rung n carries cos(k phi_n), the rings counter-rotate), Biot-Savart of straight
+// filaments (rungs, 4 chords per ring segment), shield images at Rs^2/R and, for a closed can, one mirror in each
+// end cap. Metric over the Palace ROI (r < 0.6 R, |z| < length/6): std/mean of |B_t| and the transverse fraction.
+// tests/test_uniformity.py checks it against the Python model and the Palace results.
+const Uniformity = (() => {
+  const K = 1e-7, N_CHORD = 4, H_ROI = 0.012, NUDGE = 1.1e-5;
+  const grid = (a, span, h) => { const n = Math.ceil((span + 1e-9) / h), o = []; for (let i = 0; i < n; i++) o.push(a + i * h); return o; };
+  function roiPoints(des) {
+    const R = des.diameter / 2, l = des.length, h = Math.max(H_ROI, 0.06 * R);
+    const gr = grid(-0.6 * R, 1.2 * R, h), gz = grid(-l / 6, l / 3, h), r2 = (0.6 * R) ** 2 * (1 + 1e-9), P = [];
+    for (const z of gz) for (const x of gr) for (const y of gr) if (x * x + y * y <= r2) P.push([x + NUDGE, y + NUDGE, z + NUDGE]);
+    return P;
+  }
+  // 3N unit sources (rung n, top ring segment n, bottom ring segment n), each a list of [a, b, weight] segments
+  function unitSources(des) {
+    const N = des.legs, R = des.diameter / 2, l = des.length, Rs = des.shield_diameter;
+    const ends = des.shield_ends || 'pec', Ls = Rs ? (des.shield_length || l + 0.20) : null;
+    const ph = []; for (let n = 0; n < N; n++) ph.push(2 * Math.PI * n / N);
+    const base = [];
+    for (let n = 0; n < N; n++) { const c = Math.cos(ph[n]), s = Math.sin(ph[n]); base.push([[[R * c, R * s, -l / 2], [R * c, R * s, l / 2], 1]]); }
+    for (const zc of [l / 2, -l / 2]) for (let n = 0; n < N; n++) {
+      const seg = [];
+      for (let j = 0; j < N_CHORD; j++) {
+        const t0 = ph[n] + 2 * Math.PI / N * j / N_CHORD, t1 = ph[n] + 2 * Math.PI / N * (j + 1) / N_CHORD;
+        seg.push([[R * Math.cos(t0), R * Math.sin(t0), zc], [R * Math.cos(t1), R * Math.sin(t1), zc], 1]);
+      }
+      base.push(seg);
+    }
+    if (!Rs) return base;
+    const q = (Rs / 2) ** 2 / R / R;
+    return base.map(src => {
+      let both = src.concat(src.map(([a, b, w]) => [[a[0] * q, a[1] * q, a[2]], [b[0] * q, b[1] * q, b[2]], -w]));
+      if (ends === 'pec') { const ab = both; for (const zc of [Ls / 2, -Ls / 2]) both = both.concat(ab.map(([a, b, w]) => [[a[0], a[1], 2 * zc - a[2]], [b[0], b[1], 2 * zc - b[2]], -w])); }
+      return both;
+    });
+  }
+  // fields of the unit sources at the ROI points: F[(i * nP + p) * 3 + c]
+  function unitFields(des) {
+    const P = roiPoints(des), src = unitSources(des), nP = P.length, F = new Float64Array(src.length * nP * 3);
+    const px = Float64Array.from(P, q => q[0]), py = Float64Array.from(P, q => q[1]), pz = Float64Array.from(P, q => q[2]);
+    src.forEach((list, i) => {
+      for (const [a, b, w] of list) {
+        const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], L = Math.sqrt(dx * dx + dy * dy + dz * dz), tx = dx / L, ty = dy / L, tz = dz / L;
+        for (let p = 0, o = i * nP * 3; p < nP; p++, o += 3) {
+          const r1x = px[p] - a[0], r1y = py[p] - a[1], r1z = pz[p] - a[2], r2x = px[p] - b[0], r2y = py[p] - b[1], r2z = pz[p] - b[2];
+          const cx = ty * r1z - tz * r1y, cy = tz * r1x - tx * r1z, cz = tx * r1y - ty * r1x, rho2 = cx * cx + cy * cy + cz * cz;
+          const f = (r1x * tx + r1y * ty + r1z * tz) / Math.sqrt(r1x * r1x + r1y * r1y + r1z * r1z) - (r2x * tx + r2y * ty + r2z * tz) / Math.sqrt(r2x * r2x + r2y * r2y + r2z * r2z);
+          const s = K * w * f / rho2;
+          F[o] += s * cx; F[o + 1] += s * cy; F[o + 2] += s * cz;
+        }
+      }
+    });
+    return { nP, nS: src.length, F };
+  }
+  function modeWeights(N, k, family) {
+    if (family === 'corot') return new Array(N).fill(0).concat(new Array(2 * N).fill(1));
+    const M = []; for (let n = 0; n < N; n++) M.push(k === 0 ? 1 : Math.sin(k * (2 * Math.PI * n / N + Math.PI / N)) / (2 * Math.sin(k * Math.PI / N)));
+    return M.map((m, n) => m - M[(n + N - 1) % N]).concat(M, M.map(m => -m));
+  }
+  function metric(U, w) {
+    const { nP, F } = U; let sum = 0, sum2 = 0, all2 = 0;
+    for (let p = 0; p < nP; p++) {
+      let bx = 0, by = 0, bz = 0;
+      for (let i = 0; i < w.length; i++) { if (!w[i]) continue; const o = (i * nP + p) * 3; bx += w[i] * F[o]; by += w[i] * F[o + 1]; bz += w[i] * F[o + 2]; }
+      const bt2 = bx * bx + by * by; sum += Math.sqrt(bt2); sum2 += bt2; all2 += bt2 + bz * bz;
+    }
+    const mean = sum / nP, sd = Math.sqrt(Math.max(0, sum2 / nP - mean * mean));
+    return { bt_cv: sd / mean, transverse_frac: sum2 / all2 };
+  }
+  const cache = new Map();
+  // per-mode metric for k = 0..N/2 (k = 0: counter-rotating ring mode) and the co-rotating ring mode
+  function spectrum(des) {
+    const key = JSON.stringify([des.legs, des.diameter, des.length, des.shield_diameter || null, des.shield_length || null, des.shield_ends || 'pec']);
+    if (cache.has(key)) return cache.get(key);
+    const N = des.legs, U = unitFields(des), modes = [];
+    for (let k = 0; k <= N / 2; k++) modes.push(Object.assign({ k }, metric(U, modeWeights(N, k))));
+    const out = { modes, corot: metric(U, modeWeights(N, 0, 'corot')), n_points: U.nP };
+    if (cache.size > 6) cache.delete(cache.keys().next().value);
+    cache.set(key, out); return out;
+  }
+  return { spectrum, roiPoints, modeWeights };
+})();
+
+// Palace per-mode uniformity of the reference coils (16 rungs, 28 cm, 25 cm, 34 cm closed can, 3 T, production
+// mesh, order 2), mean over each degenerate pair: results/lp16_3T.json, hp16_3T.json, bp16_3T.json.
+// cv = std/mean of |B_t| in the ROI (%), tf = transverse fraction, f = MHz. tests/test_uniformity.py checks these.
+const PALACE_U = {
+  lp: {k1:{cv:4.0, tf:1.0, f:127.7}, k2:{cv:35.4, tf:1.0, f:202.8}, stray222:{cv:60.5, tf:0.84, f:222.6}, k3:{cv:57.2, tf:1.0, f:242.2}, k4:{cv:74.6, tf:1.0, f:265.2}, k5:{cv:89.3, tf:1.0, f:280.0}, k6:{cv:103.0, tf:1.0, f:289.5}, k7:{cv:120.6, tf:1.0, f:294.9}, k8:{cv:126.1, tf:1.0, f:296.6}, stray393:{cv:71.7, tf:0.97, f:393.3}, rungs_in_phase:{cv:33.2, tf:1.0, f:483.3}},
+  hp: {k8:{cv:126.3, tf:0.99, f:53.7}, k7:{cv:120.7, tf:1.0, f:54.4}, k6:{cv:103.4, tf:1.0, f:56.6}, k5:{cv:89.7, tf:1.0, f:60.8}, k4:{cv:75.0, tf:1.0, f:67.7}, k3:{cv:57.8, tf:1.0, f:79.0}, k2:{cv:36.1, tf:1.0, f:97.7}, k1:{cv:3.4, tf:1.0, f:127.7}, ring0_corot:{cv:72.8, tf:0.06, f:154.1}, ring0_counter:{cv:34.2, tf:0.62, f:154.3}, endring_k1:{cv:60.4, tf:0.78, f:266.6}, endring_k2:{cv:71.5, tf:0.97, f:414.4}, stray415:{cv:31.1, tf:1.0, f:415.7}},
+  bp: {k8:{cv:125.7, tf:0.99, f:89.1}, k7:{cv:120.3, tf:1.0, f:89.2}, k6:{cv:103.5, tf:1.0, f:89.4}, k5:{cv:89.9, tf:1.0, f:90.2}, k4:{cv:75.1, tf:1.0, f:92.1}, k3:{cv:57.9, tf:1.0, f:96.8}, k2:{cv:36.0, tf:1.0, f:107.2}, k1:{cv:3.4, tf:1.0, f:127.7}, ring0_corot:{cv:72.2, tf:0.06, f:147.6}, ring0_counter:{cv:34.4, tf:0.62, f:147.8}, endring_k1:{cv:60.5, tf:0.79, f:263.3}, endring_k2:{cv:71.6, tf:0.97, f:412.8}, rungs_in_phase:{cv:31.3, tf:1.0, f:419.8}, endring_k3:{cv:87.6, tf:1.0, f:506.1}},
+};
+
 const Spec = (() => {
   // CLI defaults of `birdcage build` (birdcage_palace/cli.py), SI units, plus the solve/tune defaults.
   const DEFAULTS = { legs: 16, diameter: 0.28, length: 0.25, leg_width: 0.012, ring_width: 0.015, gap: 0.005,
@@ -461,6 +576,7 @@ const Spec = (() => {
   function toDesign(s) {
     return { legs: s.legs, diameter: s.diameter, length: s.length, leg_width: s.leg_width, ring_width: s.ring_width,
       gap: s.gap, coil_type: s.type, b0: s.b0, shield_diameter: s.shielded ? s.shield : null,
+      shield_length: s.shielded ? shieldLen(s) : null, shield_ends: s.shield_ends,
       c_leg: s.c_leg, c_ring: s.c_ring, bandpass_ratio: s.bandpass_ratio };
   }
   function caseName(s) {
@@ -921,7 +1037,7 @@ function load() { try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'
   if (!['with', 'without', 'both'].includes(S.shield_mode)) S.shield_mode = 'with'; S.shielded = S.shield_mode !== 'without'; }
 
 // ---------- compute ----------
-let LAD = null, LAD2 = null, EST = null, ERRS = [], WARNS = [];
+let LAD = null, LAD2 = null, UNI = null, UNI2 = null, EST = null, ERRS = [], WARNS = [];
 function compute() {
   S.shielded = S.shield_mode !== 'without';
   [ERRS, WARNS] = Spec.check(S);
@@ -934,6 +1050,9 @@ function compute() {
     LAD = Ladder.design(Spec.toDesign(S));
     // Both: the ladder model of the unshielded case too (no image currents)
     LAD2 = S.shield_mode === 'both' ? Ladder.design(Spec.toDesign(Spec.cases(S)[1])) : null;
+    // field uniformity of each mode (quasi-static; geometry only, cached)
+    UNI = Uniformity.spectrum(Spec.toDesign(Spec.cases(S)[0]));
+    UNI2 = LAD2 ? Uniformity.spectrum(Spec.toDesign(Spec.cases(S)[1])) : null;
     EST = Cost.estimate(S);
   }
   $('#goBtn').disabled = !!ERRS.length;
@@ -973,13 +1092,15 @@ function renderReadout() {
     const sp2 = Ladder.analytic(d2).spectrum, f2 = sp2.f_hz[sp2.k.indexOf(1)];
     items.push(['Shield removed, same C', MHz(f2) + ' MHz', `k = 1 ${((f2 / f1 - 1) * 100).toFixed(1)} % (ladder)`]);
   }
+  if (UNI) items.push(['k = 1 |B_t| CV', pct(UNI.modes[1].bt_cv), 'central region, quasi-static']);
   items.push(['L per rung (self)', used.Lleg_self_nH.toFixed(1) + ' nH', `ring seg. ${used.Lring_seg_self_nH.toFixed(1)} nH`]);
   r.innerHTML = items.map(([a, b, c]) => `<div><span>${a}</span><b>${b}</b><small>${c}</small></div>`).join('');
-  $('#specNote').textContent = `${S.legs / 2 + 1} ladder modes${sp.f_corot_hz ? ' + co-rotating ring mode' : ''} · tall stem = degenerate pair` + (LAD2 ? ' · dashed = no shield, same C' : '') + (S.shield_mode === 'without' ? ' · no shield' : '');
-  let h = '<thead><tr><th>k</th><th>f (MHz)</th><th>pair</th><th>vs f0</th></tr></thead><tbody>';
+  $('#specNote').textContent = `${S.legs / 2 + 1} ladder modes${sp.f_corot_hz ? ' + co-rotating ring mode' : ''} · tall stem = degenerate pair · colour = field uniformity` + (LAD2 ? ' · dashed = no shield, same C' : '') + (S.shield_mode === 'without' ? ' · no shield' : '');
+  const uc = u => u ? `<td>${pct(u.bt_cv)}</td><td>${u.transverse_frac.toFixed(2)}${u.transverse_frac < 0.5 ? ' (along B0)' : ''}</td>` : '<td>–</td><td>–</td>';
+  let h = '<thead><tr><th>k</th><th>f (MHz)</th><th>pair</th><th>vs f0</th><th>|B<sub>t</sub>| CV</th><th>B<sub>t</sub> frac.</th></tr></thead><tbody>';
   sp.k.forEach((k, i) => { const f = sp.f_hz[i]; if (S.type === 'lowpass' && k === 0) return;
-    h += `<tr${k === 1 ? ' class="hl"' : ''}><td>${k}${k === 0 ? ' (ring, counter-rot.)' : ''}</td><td>${isFinite(f) ? MHz(f) : '–'}</td><td>${sp.degenerate[i] ? 'yes' : 'no'}</td><td>${isFinite(f) ? ((f / f0 - 1) * 100).toFixed(1) + ' %' : ''}</td></tr>`; });
-  if (sp.f_corot_hz) h += `<tr><td>ring, co-rot.</td><td>${MHz(sp.f_corot_hz)}</td><td>no</td><td>${((sp.f_corot_hz / f0 - 1) * 100).toFixed(1)} %</td></tr>`;
+    h += `<tr${k === 1 ? ' class="hl"' : ''}><td>${k}${k === 0 ? ' (ring, counter-rot.)' : ''}</td><td>${isFinite(f) ? MHz(f) : '–'}</td><td>${sp.degenerate[i] ? 'yes' : 'no'}</td><td>${isFinite(f) ? ((f / f0 - 1) * 100).toFixed(1) + ' %' : ''}</td>${uc(uniOf(UNI, k))}</tr>`; });
+  if (sp.f_corot_hz) h += `<tr><td>ring, co-rot.</td><td>${MHz(sp.f_corot_hz)}</td><td>no</td><td>${((sp.f_corot_hz / f0 - 1) * 100).toFixed(1)} %</td>${uc(uniOf(UNI, -1))}</tr>`;
   t.innerHTML = h + '</tbody>';
 }
 
@@ -992,18 +1113,35 @@ function fitCanvas(cv) {
 function niceStep(span, n) { const r = span / n, p = Math.pow(10, Math.floor(Math.log10(r))), m = r / p; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p; }
 
 // ---------- spectrum plot ----------
+// viridis (perceptually uniform, monotone lightness) on |B_t| CV from 0 to 125 %
+const VIRIDIS = ['#440154', '#472d7b', '#3b528b', '#2c728e', '#21918c', '#28ae80', '#5ec962', '#addc30', '#fde725'].map(hexRgb);
+const CV_MAX = 1.25;
+function cvColor(cv) {
+  const t = Math.max(0, Math.min(1, cv / CV_MAX)) * (VIRIDIS.length - 1), i = Math.min(VIRIDIS.length - 2, Math.floor(t));
+  return mix(VIRIDIS[i], VIRIDIS[i + 1], t - i);
+}
+// model uniformity of a spectrum point: k >= 0 ladder mode k (k = 0: counter-rotating ring mode), k = -1 co-rotating ring mode
+const uniOf = (U, k) => !U ? null : k === -1 ? U.corot : U.modes[k] || null;
+const pct = v => (v * 100).toFixed(v < 0.1 ? 1 : 0) + ' %';
+let SPEC_HITS = [];
+function modeName(k) { return k === -1 ? 'end-ring mode, co-rotating' : k === 0 ? 'end-ring k = 0, counter-rotating' : `k = ${k}`; }
+function marker(g, x, y, r, zAxis) {
+  g.beginPath();
+  if (zAxis) { g.moveTo(x, y - r * 1.25); g.lineTo(x + r * 1.25, y); g.lineTo(x, y + r * 1.25); g.lineTo(x - r * 1.25, y); g.closePath(); }
+  else g.arc(x, y, r, 0, 7);
+}
 function renderSpectrum() {
   const cv = $('#spec'), [g, W, H] = fitCanvas(cv), C = Theme.c;
-  g.clearRect(0, 0, W, H);
-  if (ERRS.length || !LAD) { g.fillStyle = C.muted; g.font = `13px ${C.mono}`; g.fillText('Fix the inputs to see the spectrum.', 16, 28); return; }
+  g.clearRect(0, 0, W, H); SPEC_HITS = [];
+  if (ERRS.length || !LAD) { g.fillStyle = C.muted; g.font = `13px ${C.mono}`; g.textAlign = 'left'; g.fillText('Fix the inputs to see the spectrum.', 16, 28); renderSpecLegend(); return; }
   const sp = LAD.used.spectrum, f0 = LAD.first.f_target_hz / 1e6;
   const pts = [];
-  sp.k.forEach((k, i) => { const f = sp.f_hz[i] / 1e6; if (f > 0 && isFinite(f)) pts.push({ f, lab: 'k' + k, k, pair: sp.degenerate[i] }); });
-  if (sp.f_corot_hz) pts.push({ f: sp.f_corot_hz / 1e6, lab: 'ring', k: -1, pair: false });
+  sp.k.forEach((k, i) => { const f = sp.f_hz[i] / 1e6; if (f > 0 && isFinite(f)) pts.push({ f, lab: 'k' + k, k, pair: sp.degenerate[i], u: uniOf(UNI, k) }); });
+  if (sp.f_corot_hz) pts.push({ f: sp.f_corot_hz / 1e6, lab: 'ring', k: -1, pair: false, u: uniOf(UNI, -1) });
   const pts2 = [];
   if (LAD2) { const d2 = Spec.toDesign(Spec.cases(S)[1]); d2.c_leg = LAD.used.c_leg; d2.c_ring = LAD.used.c_ring;
-    const sp2 = Ladder.analytic(d2).spectrum; sp2.k.forEach((k, i) => { const f = sp2.f_hz[i] / 1e6; if (f > 0 && isFinite(f)) pts2.push({ f, k, pair: sp2.degenerate[i] }); });
-    if (sp2.f_corot_hz) pts2.push({ f: sp2.f_corot_hz / 1e6, k: -1, pair: false }); }
+    const sp2 = Ladder.analytic(d2).spectrum; sp2.k.forEach((k, i) => { const f = sp2.f_hz[i] / 1e6; if (f > 0 && isFinite(f)) pts2.push({ f, k, pair: sp2.degenerate[i], u: uniOf(UNI2, k) }); });
+    if (sp2.f_corot_hz) pts2.push({ f: sp2.f_corot_hz / 1e6, k: -1, pair: false, u: uniOf(UNI2, -1) }); }
   const fmax = Math.max(f0, ...pts.map(p => p.f), ...pts2.map(p => p.f)) * 1.08, fmin = 0;
   const L = 16, R = 16, T = 16, B = 34, pw = W - L - R, ph = H - T - B;
   const X = f => L + (f - fmin) / (fmax - fmin) * pw;
@@ -1014,31 +1152,77 @@ function renderSpectrum() {
   g.strokeStyle = C.line; g.beginPath(); g.moveTo(L, T + ph); g.lineTo(L + pw, T + ph); g.stroke();
   // f0 line
   g.strokeStyle = C.ink; g.setLineDash([5, 4]); g.lineWidth = 1.2; g.beginPath(); g.moveTo(X(f0), T); g.lineTo(X(f0), T + ph); g.stroke(); g.setLineDash([]);
-  // stems with staggered labels
+  // staggered labels: a label takes the first row where it clears the previous one
   pts.sort((a, b) => a.f - b.f);
-  const rows = []; const minGap = 30;
+  for (const p of pts) if (p.k === 1) p.lab = 'k1 tune';
+  const rows = [];
   for (const p of pts) {
-    const x = X(p.f); let r = 0; while (rows[r] !== undefined && x - rows[r] < minGap) r++; rows[r] = x; p.row = r;
+    g.font = `${p.k === 1 ? 700 : 500} 11px ${C.mono}`;
+    const x = X(p.f), hw = g.measureText(p.lab).width / 2 + 4; let r = 0;
+    while (rows[r] !== undefined && x - hw < rows[r]) r++; rows[r] = x + hw; p.row = r;
   }
   const nrow = Math.max(1, rows.length), top = T + 14 + 13 * Math.min(nrow, 6);
-  for (const p of pts) {
-    const x = X(p.f), col = p.k === 1 ? C.field : p.k === -1 ? C.capring : p.k === 0 ? C.warn : C.accent;
-    const h = p.pair ? ph - (top - T) : (ph - (top - T)) * 0.6;
-    g.strokeStyle = col; g.lineWidth = p.k === 1 ? 3 : 2;
-    g.beginPath(); g.moveTo(x, T + ph); g.lineTo(x, T + ph - h); g.stroke();
-    g.fillStyle = col; g.beginPath(); g.arc(x, T + ph - h, p.k === 1 ? 4 : 3, 0, 7); g.fill();
-    if (p.row < 6) { g.font = `${p.k === 1 ? 600 : 500} 11px ${C.mono}`; g.fillText(p.lab, x, T + 12 + 13 * p.row); }
-  }
+  const stemH = p => (p.pair ? ph - (top - T) - 8 : (ph - (top - T)) * 0.6);
+  // dashed: no shield, same C (Both)
   for (const p of pts2) {
-    const x = X(p.f), col = p.k === 1 ? C.field : p.k === -1 ? C.capring : p.k === 0 ? C.warn : C.accent;
-    const h = (p.pair ? ph - (top - T) : (ph - (top - T)) * 0.6) * 0.8;
-    g.strokeStyle = col; g.lineWidth = 1.4; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(x, T + ph); g.lineTo(x, T + ph - h); g.stroke(); g.setLineDash([]);
-    g.beginPath(); g.arc(x, T + ph - h, 3, 0, 7); g.stroke();
+    const x = X(p.f), y = T + ph - stemH(p) * 0.8, z = p.u && p.u.transverse_frac < 0.5;
+    g.strokeStyle = C.muted; g.lineWidth = 1.2; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(x, T + ph); g.lineTo(x, y); g.stroke(); g.setLineDash([]);
+    marker(g, x, y, 4, z); g.fillStyle = C.surface; g.fill(); g.strokeStyle = p.u ? rgba(cvColor(p.u.bt_cv)) : C.muted; g.lineWidth = 2; g.stroke();
+    SPEC_HITS.push({ x, y, p, noshield: true });
+  }
+  for (const p of pts) {
+    const x = X(p.f), y = T + ph - stemH(p), z = p.u && p.u.transverse_frac < 0.5, r = p.k === 1 ? 6.5 : 5;
+    g.strokeStyle = p.k === 1 ? C.ink : C.muted; g.lineWidth = p.k === 1 ? 2 : 1.5;
+    g.beginPath(); g.moveTo(x, T + ph); g.lineTo(x, y); g.stroke();
+    if (p.k === 1) { g.strokeStyle = C.field; g.lineWidth = 2.5; g.beginPath(); g.arc(x, y, r + 5, 0, 7); g.stroke(); }
+    marker(g, x, y, r, z);
+    g.fillStyle = p.u ? rgba(cvColor(p.u.bt_cv)) : C.muted; g.fill();
+    g.strokeStyle = C.surface; g.lineWidth = 2; g.stroke();
+    marker(g, x, y, r + 1, z); g.strokeStyle = C.ink; g.lineWidth = 1; g.stroke();
+    if (p.row < 6) { g.font = `${p.k === 1 ? 700 : 500} 11px ${C.mono}`; g.textAlign = 'center';
+      const lw = g.measureText(p.lab).width + 4, ly = T + 12 + 13 * p.row; g.fillStyle = C.surface; g.fillRect(x - lw / 2, ly - 10, lw, 13);
+      g.fillStyle = p.k === 1 ? C.ink : C.muted; g.fillText(p.lab, x, ly); }
+    SPEC_HITS.push({ x, y, p });
   }
   const fl = ` f0 ${f0.toFixed(1)} MHz `; g.font = `600 11px ${C.mono}`;
   const right = X(f0) > L + pw * 0.6, tw = g.measureText(fl).width, tx = right ? X(f0) - tw - 2 : X(f0) + 2, ty = T + ph - 22;
   g.fillStyle = rgba(Theme.c.rgb.surface, 0.9); g.fillRect(tx, ty - 10, tw, 14);
   g.fillStyle = C.ink; g.textAlign = 'left'; g.fillText(fl, tx, ty);
+  renderSpecLegend();
+}
+// colour bar, symbols and notes under the spectrum (HTML, so it wraps on a phone)
+function renderSpecLegend() {
+  const el = $('#specLeg'); if (!el) return;
+  if (ERRS.length || !LAD || !UNI) { el.innerHTML = ''; return; }
+  const grad = VIRIDIS.map((c, i) => `${rgba(c)} ${(i / (VIRIDIS.length - 1) * 100).toFixed(0)}%`).join(', ');
+  const ticks = [0, 25, 50, 75, 100, 125].map(v => `<span style="left:${v / 125 * 100}%">${v}${v === 125 ? '+' : ''}</span>`).join('');
+  const sp = LAD.used.spectrum, zModes = [];
+  if (sp.f_corot_hz && UNI.corot.transverse_frac < 0.5) zModes.push('ring');
+  sp.k.forEach((k, i) => { if (sp.f_hz[i] > 0 && isFinite(sp.f_hz[i]) && UNI.modes[k] && UNI.modes[k].transverse_frac < 0.5) zModes.push('k' + k); });
+  const u1 = UNI.modes[1];
+  let h = `<div class="cbcap">Transverse |B| CV in the central region (%); lower = more uniform</div><div class="cbar"><i style="background:linear-gradient(90deg, ${grad})"></i><div class="ticks">${ticks}</div></div>`;
+  h += `<div class="keys"><span><b class="sym ring"></b>k = 1: the mode to tune (${pct(u1.bt_cv)} in this model)</span>`;
+  if (zModes.length) h += `<span><b class="sym dia"></b>${zModes.join(', ')}: field along B0, does not excite spins (transverse fraction &lt; 0.5)</span>`;
+  h += '</div>';
+  h += `<p class="note">Browser estimate: quasi-static Biot–Savart of the ladder currents (rungs carry cos kφ, ring segments from Kirchhoff${S.shield_mode === 'without' ? '' : ', shield image currents' + (S.shield_ends === 'pec' ? ' and end caps' : '')}) over r &lt; 0.6 R, |z| &lt; L/6, the region the Palace scripts use. It does not depend on the capacitors. Palace numbers for the reference coil are in the box below.${S.type !== 'lowpass' ? ' Palace also finds an end-ring k = 1 family (both rings co-rotating, about 2.1 × f0 on the reference coil, CV 60 %) that the ladder model does not contain, so it is not on this plot.' : ''}</p>`;
+  el.innerHTML = h;
+}
+function bindSpecHover() {
+  const cv = $('#spec'), tip = $('#specTip');
+  const hide = () => { tip.hidden = true; };
+  cv.addEventListener('mouseleave', hide);
+  cv.addEventListener('pointermove', e => {
+    const b = cv.getBoundingClientRect(), mx = e.clientX - b.left, my = e.clientY - b.top;
+    let best = null, bd = 14 * 14;
+    for (const h of SPEC_HITS) { const d = (h.x - mx) ** 2 + (h.y - my) ** 2; if (d < bd) { bd = d; best = h; } }
+    if (!best) return hide();
+    const p = best.p, u = p.u;
+    tip.innerHTML = `<b>${modeName(p.k)}${p.pair ? ' (pair)' : ''}</b>${best.noshield ? ' · no shield' : ''}<br>${p.f.toFixed(2)} MHz` +
+      (u ? `<br>|B<sub>t</sub>| CV ${pct(u.bt_cv)} · transverse ${u.transverse_frac.toFixed(2)}` + (u.transverse_frac < 0.5 ? '<br>field along B0, does not excite spins' : '') : '');
+    tip.hidden = false;
+    const tw = tip.offsetWidth, x = Math.min(Math.max(4, best.x - tw / 2), b.width - tw - 4);
+    tip.style.left = x + 'px'; tip.style.top = Math.max(4, best.y - tip.offsetHeight - 14) + 'px';
+  });
 }
 
 // ---------- accuracy table (Palace results, birdcage-palace results/*.json) ----------
@@ -1050,7 +1234,38 @@ function renderAccuracy() {
   let h = '<thead><tr><th>type</th><th>ladder C</th><th>Palace k=1</th><th>tuned C</th><th>ratio</th><th>k=1 tuned</th><th>B1+ std/mean</th></tr></thead><tbody>';
   for (const m of MEAS) h += `<tr><td>${m.t}</td><td>${m.guess.toFixed(2)} pF</td><td>${m.fGuess} MHz${m.mesh === 'coarse' ? '*' : ''}</td><td>${m.tuned.toFixed(2)} pF</td><td>${(m.tuned / m.guess).toFixed(3)}</td><td>${m.fTuned} MHz</td><td>${m.b1}</td></tr>`;
   $('#accTbl').innerHTML = h + '</tbody>';
+  renderUniformityTable();
   $('#accNote').textContent = 'Ratio = tuned C / ladder C. Tuned values on the production mesh (5/2.5/35 mm, order 2, 1.12–1.24 M unknowns). * Palace at the high-pass and band-pass first guess was solved on the coarse mesh only (8/4/40 mm, order 1), which reads about 4.5 % high for these two types. Low-pass is off by most: at 2–3 pF per rung the stray capacitance of the strips (fit: 1.21 pF) is two-thirds of the lumped value.';
+}
+
+// Palace per-mode uniformity next to the browser estimate (PALACE_U, from results/*.json)
+function renderUniformityTable() {
+  const ref = { legs: 16, diameter: 0.28, length: 0.25, shield_diameter: 0.34, shield_length: 0.45, shield_ends: 'pec' };
+  const U = Uniformity.spectrum(ref), P = PALACE_U, v = (t, key) => P[t][key] ? P[t][key].cv.toFixed(1) : '–';
+  const range = (t, ks) => { const a = ks.map(k => P[t][k].cv); return `${Math.min(...a).toFixed(0)}–${Math.max(...a).toFixed(0)}`; };
+  const m = k => (U.modes[k].bt_cv * 100).toFixed(1);
+  const k58 = [5, 6, 7, 8].map(k => U.modes[k].bt_cv * 100);
+  const rows = [
+    ['k = 1, the mode to tune', v('lp', 'k1'), v('hp', 'k1'), v('bp', 'k1'), m(1), true],
+    ['k = 2', v('lp', 'k2'), v('hp', 'k2'), v('bp', 'k2'), m(2)],
+    ['k = 3', v('lp', 'k3'), v('hp', 'k3'), v('bp', 'k3'), m(3)],
+    ['k = 4', v('lp', 'k4'), v('hp', 'k4'), v('bp', 'k4'), m(4)],
+    ['k = 5–8', range('lp', ['k5', 'k6', 'k7', 'k8']), range('hp', ['k5', 'k6', 'k7', 'k8']), range('bp', ['k5', 'k6', 'k7', 'k8']), `${Math.min(...k58).toFixed(0)}–${Math.max(...k58).toFixed(0)}`],
+    ['end-ring k = 0, counter-rot.', '–', v('hp', 'ring0_counter'), v('bp', 'ring0_counter'), m(0)],
+    ['end-ring, co-rot. (along B0)', '–', v('hp', 'ring0_corot'), v('bp', 'ring0_corot'), (U.corot.bt_cv * 100).toFixed(1)],
+    ['end-ring k = 1 (rings co-rot.)', '–', v('hp', 'endring_k1'), v('bp', 'endring_k1'), 'not in model'],
+    ['no capacitor current', `${v('lp', 'stray222')}, ${v('lp', 'stray393')}`, v('hp', 'stray415'), '–', 'not in model'],
+    ['k = 0, rungs in phase', v('lp', 'rungs_in_phase'), '–', v('bp', 'rungs_in_phase'), 'not in model']];
+  let h = '<thead><tr><th>mode</th><th>low-pass</th><th>high-pass</th><th>band-pass</th><th>browser</th></tr></thead><tbody>';
+  for (const r of rows) h += `<tr${r[5] ? ' class="hl"' : ''}><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td></tr>`;
+  $('#uniTbl').innerHTML = h + '</tbody>';
+  $('#uniNote').textContent = `The quasi-static model gives every coil type the same currents, so it has one number per mode; Palace sees ` +
+    `4.0 % at low-pass k = 1 against 3.4 % for the other two (stray capacitance along the low-pass rungs). The co-rotating ring mode ` +
+    `(${P.hp.ring0_corot.f.toFixed(0)} / ${P.bp.ring0_corot.f.toFixed(0)} MHz) is mostly B_z: transverse fraction ${P.hp.ring0_corot.tf.toFixed(2)} in Palace, ` +
+    `${U.corot.transverse_frac.toFixed(2)} in the model; both are under 0.5, so the spectrum marks it as field along B0. ` +
+    `Rows marked "not in model" have no ladder frequency (end-ring k = 1 at ${P.bp.endring_k1.f.toFixed(0)}–${P.hp.endring_k1.f.toFixed(0)} MHz; stray-C modes ` +
+    `at ${P.lp.stray222.f.toFixed(0)}, ${P.lp.stray393.f.toFixed(0)} and ${P.hp.stray415.f.toFixed(0)} MHz), so the spectrum does not show or colour them. ` +
+    `Comparison and tolerances: tests/test_uniformity.py.`;
 }
 
 // ---------- cost ----------
@@ -1275,7 +1490,7 @@ function init() {
   $('#goBtn').addEventListener('click', () => { makePackage().catch(err => { $('#goStatus').textContent = 'Could not write the zip: ' + err.message; }); });
   $('#copyCmd').addEventListener('click', e => copyText($('#cmdOut').textContent, e.currentTarget));
   $('#copyPrompt').addEventListener('click', e => copyText($('#promptOut').textContent, e.currentTarget));
-  bindDrag();
+  bindDrag(); bindSpecHover();
   Theme.on(() => { renderSpectrum(); draw3d(); });
   let rz = null; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { renderSpectrum(); draw3d(); }, 80); });
   compute(); kick();

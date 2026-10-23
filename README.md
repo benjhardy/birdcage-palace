@@ -4,7 +4,11 @@ Project page: https://benjhardy.github.io/projects/birdcage-palace/ · part of [
 
 Live builder: https://benjhardy.github.io/birdcage-builder/ (set the specs in the browser, see the ladder-model spectrum,
 and download a package that builds, solves and tunes the coil with this repo, with or without the shield or both, and
-optionally a loaded run; source in [`web/`](web/birdcage-builder/index.html)).
+optionally a loaded run; source in [`web/`](web/birdcage-builder/index.html)). Each mode on the spectrum is coloured
+by its field uniformity (std/mean of the transverse |B| over r < 0.6 R, |z| < L/6) from a quasi-static Biot–Savart
+model of the ladder currents ([`birdcage_palace/uniformity.py`](birdcage_palace/uniformity.py)); on the three
+reference coils it is within 1 percentage point of Palace at k = 1 (3.2 % vs 3.4–4.0 %) and within 2.5 % relative for
+k = 2–8 ([`tests/test_uniformity.py`](tests/test_uniformity.py)).
 
 An open-source, scriptable builder for MRI birdcage RF coils. It sizes the capacitors with a ladder-network model,
 builds the coil in [Gmsh](https://gmsh.info), solves the full-wave eigenmodes with the
