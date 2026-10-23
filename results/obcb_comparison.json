@@ -1,0 +1,338 @@
+{
+ "what": "Capacitor first guesses for the 16-rung 3 T head birdcage (D 28 cm, L 25 cm between end-ring centrelines, rungs 12 mm and rings 15 mm flat copper strips, 34 cm closed PEC shield, unloaded) from Open BirdcageBuilder and from our ladder model, each put into Palace to see where k=1 lands. Simulation only.",
+ "f_target_mhz": 127.732434,
+ "open_birdcagebuilder": {
+  "repo": "https://github.com/dbnyu/OpenBirdcageBuilder",
+  "commit": "5a7a3942810a1042b78f2db6b02d5c277a78a3d6",
+  "version": "1.0.1",
+  "licence": "GNU AGPL-3.0 (not copied here; the harness loads the unmodified files from a local clone)",
+  "authors": "D. Brantner, G. Carluccio, C.-L. Chin, C. M. Collins (NYU Langone CAI2R/CBI)",
+  "citation": "Brantner D, Carluccio G, Collins CM. Open BirdcageBuilder. ISMRM 2024, #1569; method of Chin CL, Collins CM, Li S, Dardzinski BJ, Smith MB. Concepts Magn Reson 2002;15(2):156-163",
+  "selfcheck": {
+   "case": "repo unit test 'App Defaults Tests'",
+   "expected_pf": 205.0515,
+   "got_pf": 205.05143614996442
+  },
+  "inputs": {
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "coil_radius_cm": 14.0,
+   "shield_radius_cm": 17.0,
+   "leg_length_cm": 25.0,
+   "leg_type": "rectangular, width 1.2 cm",
+   "end_ring_type": "rectangular, width 1.5 cm",
+   "band_pass": "C_leg = C_ring found by bisection on its 'fixed caps on legs' mode (the 'fixed caps on ER' mode gives the same value)"
+  }
+ },
+ "rows": {
+  "lowpass": {
+   "title": "Low-pass",
+   "capacitors": "C in the 16 rungs",
+   "palace_model": "eighth symmetry, production mesh",
+   "obcb": {
+    "c_pf": 2.120475007682987,
+    "f_k1_mhz": 121.9494240368,
+    "palace_case": "runs/obcb_lp_obcb",
+    "f_err_pct": -4.527440511467907,
+    "c_err_vs_tuned_pct": 16.007273664782428
+   },
+   "ladder": {
+    "c_pf": 2.8070332255500423,
+    "f_k1_mhz": 111.02867317089999,
+    "palace_case": "runs/obcb_lp_ladder",
+    "source": "direct Palace solve",
+    "f_k1_mhz_full_model": 111.08461610615001,
+    "f_err_pct": -13.077149088930696,
+    "c_err_vs_tuned_pct": 53.56760650451564
+   },
+   "tuned": {
+    "c_pf": 1.8278810808108166,
+    "f_k1_mhz": 127.73351240045,
+    "palace_case": "results/lp16_3T.json (full model)",
+    "f_k1_mhz_eighth_model": 127.67522423780001,
+    "palace_case_eighth_model": "runs/obcb_lp_tuned",
+    "f_err_pct": 0.0008442651691753511,
+    "c_err_vs_tuned_pct": 0.0
+   },
+   "obcb_leg_length_23p5cm_pf": 2.1558801696487393,
+   "unshielded_circuit": {
+    "obcb_pf": 1.7831796823668433,
+    "ladder_pf": 1.8036312207148277,
+    "obcb_vs_ladder_pct": -1.1339090892360404,
+    "palace_tuned_pf_coarse_o1": 0.9369492657615646
+   },
+   "eighth_vs_full_at_tuned_c": {
+    "eighth_mhz": 127.67522423780001,
+    "full_mhz": 127.73351240045
+   }
+  },
+  "highpass": {
+   "title": "High-pass",
+   "capacitors": "C in the 32 ring gaps",
+   "palace_model": "full model, production mesh",
+   "obcb": {
+    "c_pf": 27.856831120978082,
+    "f_k1_mhz": 147.78685294399997,
+    "palace_case": "runs/obcb_hp_obcb",
+    "f_err_pct": 15.700334140661543,
+    "c_err_vs_tuned_pct": -26.29805475863861
+   },
+   "ladder": {
+    "c_pf": 36.87619530143132,
+    "f_k1_mhz": 129.256288601,
+    "palace_case": "runs/obcb_hp_ladder",
+    "source": "direct Palace solve",
+    "f_err_pct": 1.1930052166703398,
+    "c_err_vs_tuned_pct": -2.4351580044179366
+   },
+   "tuned": {
+    "c_pf": 37.79660228743173,
+    "f_k1_mhz": 127.7325184555,
+    "palace_case": "results/hp16_3T.json (full model)",
+    "f_err_pct": 6.611907199527423e-05,
+    "c_err_vs_tuned_pct": 0.0
+   },
+   "obcb_leg_length_23p5cm_pf": 28.321951254022487,
+   "unshielded_circuit": {
+    "obcb_pf": 23.425758422085945,
+    "ladder_pf": 23.694431737196844,
+    "obcb_vs_ladder_pct": -1.1339090892360182
+   }
+  },
+  "bandpass": {
+   "title": "Band-pass",
+   "capacitors": "C in rungs and ring gaps, equal values",
+   "palace_model": "full model, production mesh",
+   "obcb": {
+    "c_pf": 29.977306128661073,
+    "f_k1_mhz": 149.0519645565,
+    "palace_case": "runs/obcb_bp_obcb",
+    "f_err_pct": 16.690772961000654,
+    "c_err_vs_tuned_pct": -27.29249059262413
+   },
+   "ladder": {
+    "c_pf": 39.68322852698137,
+    "f_k1_mhz": 130.06847513537886,
+    "palace_case": null,
+    "source": "interpolated, not solved: 1/f^2 linear in C between the two production-mesh solves of this coil (Open BirdcageBuilder C and Palace-tuned C); the same rule on the high-pass coil is checked against a direct solve in interp_check",
+    "f_err_pct": 1.8288551014215004,
+    "c_err_vs_tuned_pct": -3.7515679675446
+   },
+   "tuned": {
+    "c_pf": 41.230000000000004,
+    "f_k1_mhz": 127.66492007335,
+    "palace_case": "results/bp16_3T.json (full model)",
+    "f_err_pct": -0.05285574269257021,
+    "c_err_vs_tuned_pct": 0.0
+   },
+   "obcb_leg_length_23p5cm_pf": 30.477831423671223,
+   "unshielded_circuit": {
+    "obcb_pf": 25.20893810445279,
+    "ladder_pf": 25.498062957911674,
+    "obcb_vs_ladder_pct": -1.1339090892360182
+   }
+  },
+  "interp_check": {
+   "coil": "highpass",
+   "c_pf": 36.87619530143132,
+   "f_interpolated_mhz": 129.2554388114513,
+   "f_solved_mhz": 129.256288601,
+   "diff_pct": -0.0006574454193941648
+  }
+ },
+ "palace": {
+  "settings": "same mesh, order 2, MUMPS (MGMaxLevels 1), Tol 1e-8, mode count and target as the reference runs; only the lumped C values change",
+  "runs": [
+   {
+    "name": "lp_tuned",
+    "what": "Palace-tuned C (baseline)",
+    "coil_type": "lowpass",
+    "source_case": "sym_e_m2o2_clean",
+    "c_pf": 1.8278810808108166,
+    "case": "runs/obcb_lp_tuned",
+    "f_k1_mhz": 127.67522423780001,
+    "f_k1_members_mhz": [
+     127.67522423780001
+    ],
+    "k1_modes_found_mhz": [
+     127.67522423780001,
+     588.7978575607,
+     1146.8038279149998
+    ],
+    "roi_bt_cv": [
+     0.04083166581723662
+    ],
+    "solve": {
+     "ranks": 4,
+     "wall_s": 49.4,
+     "exit": 0,
+     "unknowns": 155824,
+     "peak_mem_reported": null,
+     "max_rss_one_rank_gb": 0.56
+    },
+    "wall_total_s": 49.9,
+    "date": "2026-10-23 09:48"
+   },
+   {
+    "name": "lp_obcb",
+    "what": "Open BirdcageBuilder",
+    "coil_type": "lowpass",
+    "source_case": "sym_e_m2o2_clean",
+    "c_pf": 2.120475007682987,
+    "case": "runs/obcb_lp_obcb",
+    "f_k1_mhz": 121.9494240368,
+    "f_k1_members_mhz": [
+     121.9494240368
+    ],
+    "k1_modes_found_mhz": [
+     121.9494240368,
+     581.951793606,
+     1145.505384869
+    ],
+    "roi_bt_cv": [
+     0.04020986426858381
+    ],
+    "solve": {
+     "ranks": 4,
+     "wall_s": 49.0,
+     "exit": 0,
+     "unknowns": 155824,
+     "peak_mem_reported": null,
+     "max_rss_one_rank_gb": 0.57
+    },
+    "wall_total_s": 49.5,
+    "date": "2026-10-23 09:49"
+   },
+   {
+    "name": "lp_ladder",
+    "what": "our ladder first guess",
+    "coil_type": "lowpass",
+    "source_case": "sym_e_m2o2_clean",
+    "c_pf": 2.8070332255500423,
+    "case": "runs/obcb_lp_ladder",
+    "f_k1_mhz": 111.02867317089999,
+    "f_k1_members_mhz": [
+     111.02867317089999
+    ],
+    "k1_modes_found_mhz": [
+     111.02867317089999,
+     570.4324640537,
+     1143.342638339
+    ],
+    "roi_bt_cv": [
+     0.03925626719257513
+    ],
+    "solve": {
+     "ranks": 4,
+     "wall_s": 41.1,
+     "exit": 0,
+     "unknowns": 155824,
+     "peak_mem_reported": null,
+     "max_rss_one_rank_gb": 0.54
+    },
+    "wall_total_s": 41.5,
+    "date": "2026-10-23 09:50"
+   },
+   {
+    "name": "hp_obcb",
+    "what": "Open BirdcageBuilder",
+    "coil_type": "highpass",
+    "source_case": "hp16_3T",
+    "c_pf": 27.856831120978082,
+    "case": "runs/obcb_hp_obcb",
+    "f_k1_mhz": 147.78685294399997,
+    "f_k1_members_mhz": [
+     147.7892454204,
+     147.78446046759998
+    ],
+    "k1_modes_found_mhz": [
+     147.78446046759998,
+     147.7892454204,
+     280.7506612874,
+     280.7777169849
+    ],
+    "roi_bt_cv": [
+     0.033238841014555334,
+     0.03325278986809451
+    ],
+    "solve": {
+     "ranks": 4,
+     "wall_s": 972.9,
+     "exit": 0,
+     "unknowns": 1195066,
+     "peak_mem_reported": null,
+     "max_rss_one_rank_gb": 4.74
+    },
+    "wall_total_s": 973.8,
+    "date": "2026-10-23 10:06"
+   },
+   {
+    "name": "bp_obcb",
+    "what": "Open BirdcageBuilder",
+    "coil_type": "bandpass",
+    "source_case": "bp16_3T",
+    "c_pf": 29.977306128661073,
+    "case": "runs/obcb_bp_obcb",
+    "f_k1_mhz": 149.0519645565,
+    "f_k1_members_mhz": [
+     149.057103595,
+     149.046825518
+    ],
+    "k1_modes_found_mhz": [
+     149.046825518,
+     149.057103595,
+     277.1227161425,
+     277.1534760104
+    ],
+    "roi_bt_cv": [
+     0.033666655678869666,
+     0.033675520547816085
+    ],
+    "solve": {
+     "ranks": 4,
+     "wall_s": 1606.8,
+     "exit": 0,
+     "unknowns": 1238220,
+     "peak_mem_reported": null,
+     "max_rss_one_rank_gb": 5.06
+    },
+    "wall_total_s": 1607.5,
+    "date": "2026-10-23 10:33"
+   },
+   {
+    "name": "hp_ladder",
+    "what": "our ladder first guess",
+    "coil_type": "highpass",
+    "source_case": "hp16_3T",
+    "c_pf": 36.87619530143132,
+    "case": "runs/obcb_hp_ladder",
+    "f_k1_mhz": 129.256288601,
+    "f_k1_members_mhz": [
+     129.2583779651,
+     129.2541992369
+    ],
+    "k1_modes_found_mhz": [
+     129.2541992369,
+     129.2583779651,
+     267.64994790469996,
+     267.67743220989996
+    ],
+    "roi_bt_cv": [
+     0.0339981537642573,
+     0.03400738901570177
+    ],
+    "solve": {
+     "ranks": 4,
+     "wall_s": 888.2,
+     "exit": 0,
+     "unknowns": 1195066,
+     "peak_mem_reported": null,
+     "max_rss_one_rank_gb": 4.78
+    },
+    "wall_total_s": 888.9,
+    "date": "2026-10-23 10:48"
+   }
+  ]
+ },
+ "table_md": "| | | C (pF) | k=1 in Palace (MHz) | error vs 127.73 MHz | C vs Palace-tuned |\n|---|---|---|---|---|---|\n| Low-pass | Open BirdcageBuilder | 2.120 | 121.95 | -4.53 % | +16.0 % |\n| Low-pass | our ladder first guess | 2.807 | 111.03 | -13.08 % | +53.6 % |\n| Low-pass | Palace-tuned | 1.828 | 127.73 | \u2014 | \u2014 |\n| High-pass | Open BirdcageBuilder | 27.857 | 147.79 | +15.70 % | -26.3 % |\n| High-pass | our ladder first guess | 36.876 | 129.26 | +1.19 % | -2.4 % |\n| High-pass | Palace-tuned | 37.797 | 127.73 | \u2014 | \u2014 |\n| Band-pass | Open BirdcageBuilder | 29.977 | 149.05 | +16.69 % | -27.3 % |\n| Band-pass | our ladder first guess | 39.683 | 130.07 (interpolated, see note) | +1.83 % | -3.8 % |\n| Band-pass | Palace-tuned | 41.230 | 127.66 | \u2014 | \u2014 |"
+}

@@ -1,0 +1,191 @@
+[
+ {
+  "name": "lp_tuned",
+  "what": "Palace-tuned C (baseline)",
+  "coil_type": "lowpass",
+  "source_case": "sym_e_m2o2_clean",
+  "c_pf": 1.8278810808108166,
+  "case": "runs/obcb_lp_tuned",
+  "f_k1_mhz": 127.67522423780001,
+  "f_k1_members_mhz": [
+   127.67522423780001
+  ],
+  "k1_modes_found_mhz": [
+   127.67522423780001,
+   588.7978575607,
+   1146.8038279149998
+  ],
+  "roi_bt_cv": [
+   0.04083166581723662
+  ],
+  "solve": {
+   "ranks": 4,
+   "wall_s": 49.4,
+   "exit": 0,
+   "unknowns": 155824,
+   "peak_mem_reported": null,
+   "max_rss_one_rank_gb": 0.56
+  },
+  "wall_total_s": 49.9,
+  "date": "2026-10-23 09:48"
+ },
+ {
+  "name": "lp_obcb",
+  "what": "Open BirdcageBuilder",
+  "coil_type": "lowpass",
+  "source_case": "sym_e_m2o2_clean",
+  "c_pf": 2.120475007682987,
+  "case": "runs/obcb_lp_obcb",
+  "f_k1_mhz": 121.9494240368,
+  "f_k1_members_mhz": [
+   121.9494240368
+  ],
+  "k1_modes_found_mhz": [
+   121.9494240368,
+   581.951793606,
+   1145.505384869
+  ],
+  "roi_bt_cv": [
+   0.04020986426858381
+  ],
+  "solve": {
+   "ranks": 4,
+   "wall_s": 49.0,
+   "exit": 0,
+   "unknowns": 155824,
+   "peak_mem_reported": null,
+   "max_rss_one_rank_gb": 0.57
+  },
+  "wall_total_s": 49.5,
+  "date": "2026-10-23 09:49"
+ },
+ {
+  "name": "lp_ladder",
+  "what": "our ladder first guess",
+  "coil_type": "lowpass",
+  "source_case": "sym_e_m2o2_clean",
+  "c_pf": 2.8070332255500423,
+  "case": "runs/obcb_lp_ladder",
+  "f_k1_mhz": 111.02867317089999,
+  "f_k1_members_mhz": [
+   111.02867317089999
+  ],
+  "k1_modes_found_mhz": [
+   111.02867317089999,
+   570.4324640537,
+   1143.342638339
+  ],
+  "roi_bt_cv": [
+   0.03925626719257513
+  ],
+  "solve": {
+   "ranks": 4,
+   "wall_s": 41.1,
+   "exit": 0,
+   "unknowns": 155824,
+   "peak_mem_reported": null,
+   "max_rss_one_rank_gb": 0.54
+  },
+  "wall_total_s": 41.5,
+  "date": "2026-10-23 09:50"
+ },
+ {
+  "name": "hp_obcb",
+  "what": "Open BirdcageBuilder",
+  "coil_type": "highpass",
+  "source_case": "hp16_3T",
+  "c_pf": 27.856831120978082,
+  "case": "runs/obcb_hp_obcb",
+  "f_k1_mhz": 147.78685294399997,
+  "f_k1_members_mhz": [
+   147.7892454204,
+   147.78446046759998
+  ],
+  "k1_modes_found_mhz": [
+   147.78446046759998,
+   147.7892454204,
+   280.7506612874,
+   280.7777169849
+  ],
+  "roi_bt_cv": [
+   0.033238841014555334,
+   0.03325278986809451
+  ],
+  "solve": {
+   "ranks": 4,
+   "wall_s": 972.9,
+   "exit": 0,
+   "unknowns": 1195066,
+   "peak_mem_reported": null,
+   "max_rss_one_rank_gb": 4.74
+  },
+  "wall_total_s": 973.8,
+  "date": "2026-10-23 10:06"
+ },
+ {
+  "name": "bp_obcb",
+  "what": "Open BirdcageBuilder",
+  "coil_type": "bandpass",
+  "source_case": "bp16_3T",
+  "c_pf": 29.977306128661073,
+  "case": "runs/obcb_bp_obcb",
+  "f_k1_mhz": 149.0519645565,
+  "f_k1_members_mhz": [
+   149.057103595,
+   149.046825518
+  ],
+  "k1_modes_found_mhz": [
+   149.046825518,
+   149.057103595,
+   277.1227161425,
+   277.1534760104
+  ],
+  "roi_bt_cv": [
+   0.033666655678869666,
+   0.033675520547816085
+  ],
+  "solve": {
+   "ranks": 4,
+   "wall_s": 1606.8,
+   "exit": 0,
+   "unknowns": 1238220,
+   "peak_mem_reported": null,
+   "max_rss_one_rank_gb": 5.06
+  },
+  "wall_total_s": 1607.5,
+  "date": "2026-10-23 10:33"
+ },
+ {
+  "name": "hp_ladder",
+  "what": "our ladder first guess",
+  "coil_type": "highpass",
+  "source_case": "hp16_3T",
+  "c_pf": 36.87619530143132,
+  "case": "runs/obcb_hp_ladder",
+  "f_k1_mhz": 129.256288601,
+  "f_k1_members_mhz": [
+   129.2583779651,
+   129.2541992369
+  ],
+  "k1_modes_found_mhz": [
+   129.2541992369,
+   129.2583779651,
+   267.64994790469996,
+   267.67743220989996
+  ],
+  "roi_bt_cv": [
+   0.0339981537642573,
+   0.03400738901570177
+  ],
+  "solve": {
+   "ranks": 4,
+   "wall_s": 888.2,
+   "exit": 0,
+   "unknowns": 1195066,
+   "peak_mem_reported": null,
+   "max_rss_one_rank_gb": 4.78
+  },
+  "wall_total_s": 888.9,
+  "date": "2026-10-23 10:48"
+ }
+]

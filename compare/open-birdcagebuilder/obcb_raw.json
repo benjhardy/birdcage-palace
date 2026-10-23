@@ -1,0 +1,321 @@
+{
+ "obcb_selfcheck": {
+  "case": "repo unit test 'App Defaults Tests'",
+  "expected_pf": 205.0515,
+  "got_pf": 205.05143614996442
+ },
+ "cases": [
+  {
+   "name": "lp_shield34_L25",
+   "config": "lowpass",
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 17,
+   "leg_len_cm": 25,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "result": {
+    "cap_pf": 2.120475007682987,
+    "leg_self_nH": 211.48507243170957,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 184.40624981991934,
+    "er_mutual_nH": 41.69510866119091
+   }
+  },
+  {
+   "name": "hp_shield34_L25",
+   "config": "highpass",
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 17,
+   "leg_len_cm": 25,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "result": {
+    "cap_pf": 27.856831120978082,
+    "leg_self_nH": 211.48507243170957,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 184.40624981991934,
+    "er_mutual_nH": 41.69510866119091
+   }
+  },
+  {
+   "name": "bp_leg_shield34_L25",
+   "config": "bandpass_leg",
+   "bp_equal": true,
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 17,
+   "leg_len_cm": 25,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "predcap_pf": 29.97730612866107,
+   "result": {
+    "cap_pf": 29.977306128661073,
+    "leg_self_nH": 211.48507243170957,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 184.40624981991934,
+    "er_mutual_nH": 41.69510866119091
+   },
+   "fixed_point_residual_pf": 3.552713678800501e-15
+  },
+  {
+   "name": "bp_er_shield34_L25",
+   "config": "bandpass_er",
+   "bp_equal": true,
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 17,
+   "leg_len_cm": 25,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "predcap_pf": 29.977306128661077,
+   "result": {
+    "cap_pf": 29.97730612866113,
+    "leg_self_nH": 211.48507243170957,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 184.40624981991934,
+    "er_mutual_nH": 41.69510866119091
+   },
+   "fixed_point_residual_pf": 5.3290705182007514e-14
+  },
+  {
+   "name": "lp_shield34_L23.5",
+   "config": "lowpass",
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 17,
+   "leg_len_cm": 23.5,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "result": {
+    "cap_pf": 2.1558801696487393,
+    "leg_self_nH": 195.88782411105691,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 172.3823126850513,
+    "er_mutual_nH": 41.69510866119091
+   }
+  },
+  {
+   "name": "hp_shield34_L23.5",
+   "config": "highpass",
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 17,
+   "leg_len_cm": 23.5,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "result": {
+    "cap_pf": 28.321951254022487,
+    "leg_self_nH": 195.88782411105691,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 172.3823126850513,
+    "er_mutual_nH": 41.69510866119091
+   }
+  },
+  {
+   "name": "bp_leg_shield34_L23.5",
+   "config": "bandpass_leg",
+   "bp_equal": true,
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 17,
+   "leg_len_cm": 23.5,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "predcap_pf": 30.47783142367122,
+   "result": {
+    "cap_pf": 30.477831423671223,
+    "leg_self_nH": 195.88782411105691,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 172.3823126850513,
+    "er_mutual_nH": 41.69510866119091
+   },
+   "fixed_point_residual_pf": 3.552713678800501e-15
+  },
+  {
+   "name": "bp_er_shield34_L23.5",
+   "config": "bandpass_er",
+   "bp_equal": true,
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 17,
+   "leg_len_cm": 23.5,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "predcap_pf": 30.477831423671226,
+   "result": {
+    "cap_pf": 30.477831423671333,
+    "leg_self_nH": 195.88782411105691,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 172.3823126850513,
+    "er_mutual_nH": 41.69510866119091
+   },
+   "fixed_point_residual_pf": 1.0658141036401503e-13
+  },
+  {
+   "name": "lp_noshield_L25",
+   "config": "lowpass",
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 0,
+   "leg_len_cm": 25,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "result": {
+    "cap_pf": 1.7831796823668433,
+    "leg_self_nH": 211.48507243170957,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 322.89673741985575,
+    "er_mutual_nH": 41.69510866119091
+   }
+  },
+  {
+   "name": "hp_noshield_L25",
+   "config": "highpass",
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 0,
+   "leg_len_cm": 25,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "result": {
+    "cap_pf": 23.425758422085945,
+    "leg_self_nH": 211.48507243170957,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 322.89673741985575,
+    "er_mutual_nH": 41.69510866119091
+   }
+  },
+  {
+   "name": "bp_leg_noshield_L25",
+   "config": "bandpass_leg",
+   "bp_equal": true,
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 0,
+   "leg_len_cm": 25,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "predcap_pf": 25.20893810445279,
+   "result": {
+    "cap_pf": 25.20893810445279,
+    "leg_self_nH": 211.48507243170957,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 322.89673741985575,
+    "er_mutual_nH": 41.69510866119091
+   },
+   "fixed_point_residual_pf": 0
+  },
+  {
+   "name": "bp_er_noshield_L25",
+   "config": "bandpass_er",
+   "bp_equal": true,
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 0,
+   "leg_len_cm": 25,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "predcap_pf": 25.2089381044528,
+   "result": {
+    "cap_pf": 25.208938104452816,
+    "leg_self_nH": 211.48507243170957,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 322.89673741985575,
+    "er_mutual_nH": 41.69510866119091
+   },
+   "fixed_point_residual_pf": 1.7763568394002505e-14
+  },
+  {
+   "name": "lp_noshield_L23.5",
+   "config": "lowpass",
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 0,
+   "leg_len_cm": 23.5,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "result": {
+    "cap_pf": 1.8354262353230777,
+    "leg_self_nH": 195.88782411105691,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 298.11318897647203,
+    "er_mutual_nH": 41.69510866119091
+   }
+  },
+  {
+   "name": "hp_noshield_L23.5",
+   "config": "highpass",
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 0,
+   "leg_len_cm": 23.5,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "result": {
+    "cap_pf": 24.11212510741905,
+    "leg_self_nH": 195.88782411105691,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 298.11318897647203,
+    "er_mutual_nH": 41.69510866119091
+   }
+  },
+  {
+   "name": "bp_leg_noshield_L23.5",
+   "config": "bandpass_leg",
+   "bp_equal": true,
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 0,
+   "leg_len_cm": 23.5,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "predcap_pf": 25.947551342742123,
+   "result": {
+    "cap_pf": 25.947551342742127,
+    "leg_self_nH": 195.88782411105691,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 298.11318897647203,
+    "er_mutual_nH": 41.69510866119091
+   },
+   "fixed_point_residual_pf": 3.552713678800501e-15
+  },
+  {
+   "name": "bp_er_noshield_L23.5",
+   "config": "bandpass_er",
+   "bp_equal": true,
+   "n_legs": 16,
+   "f_mhz": 127.732434,
+   "r_coil_cm": 14,
+   "r_shield_cm": 0,
+   "leg_len_cm": 23.5,
+   "leg_width_cm": 1.2,
+   "er_width_cm": 1.5,
+   "predcap_pf": 25.947551342742138,
+   "result": {
+    "cap_pf": 25.947551342742067,
+    "leg_self_nH": 195.88782411105691,
+    "er_self_nH": 27.401276210415958,
+    "leg_mutual_nH": 298.11318897647203,
+    "er_mutual_nH": 41.69510866119091
+   },
+   "fixed_point_residual_pf": -7.105427357601002e-14
+  }
+ ]
+}
